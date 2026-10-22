@@ -105,7 +105,7 @@ function opDelta(op,accId){ // signed change of account balance by op
 function accBalance(id,uptoMs){const a=account(id);if(!a)return 0;let b=a.opening||0;
   for(const o of opsList()){if(uptoMs!=null&&parseD(o.date)>uptoMs)continue;b+=opDelta(o,id)}return b}
 function totalEUR(accIds,uptoMs){let s=0;for(const a of accounts()){if(accIds?!accIds.includes(a.id):a.exclude)continue;s+=toEUR(accBalance(a.id,uptoMs),a.currency)}return s}
-const opEUR=o=>toEUR(o.amount,accCur(o.accountId));
+const opEUR=o=>typeof o.eur==="number"?o.eur:toEUR(o.amount,accCur(o.accountId));
 
 /* ================= periods ================= */
 function periodRange(p){
@@ -139,14 +139,15 @@ function saveUI(){lsSet("finance.ui",JSON.stringify({tab:UI.tab,budget:UI.budget
 const reg=w=>w.saved+(w.oneoff||0)-(w.income||0);
 const hasX=w=>(w.oneoff||0)>0||(w.income||0)>0;
 function weekLedger(mondayMs,accIds){
-  const end=mondayMs+7*DAY;let inc=0,exp=0,ox=0,oi=0,n=0;
+  const end=mondayMs+7*DAY;let inc=0,exp=0,ox=0,oi=0,n=0;const notes=[];
   for(const o of opsList()){const t=parseD(o.date);if(t<mondayMs||t>=end)continue;
     if(accIds&&accIds.length&&!accIds.includes(o.accountId))continue;
     if(o.type!=="expense"&&o.type!=="income")continue;
     const acc=account(o.accountId);if(!acc||acc.exclude)continue;
     const v=opEUR(o);n++;
-    if(o.type==="income"){inc+=v;if(o.oneoff)oi+=v}else{exp+=v;if(o.oneoff)ox+=v}}
-  return{inc,exp,saved:inc-exp,oneoff:ox,income:oi,n};
+    if(o.type==="income"){inc+=v;if(o.oneoff)oi+=v}else{exp+=v;if(o.oneoff)ox+=v}
+    if(o.oneoff){const nm=o.comment||(category(o.categoryId)||{}).name;if(nm&&!notes.includes(nm))notes.push(nm)}}
+  return{inc,exp,saved:inc-exp,oneoff:ox,income:oi,n,note:notes.join(", ")};
 }
 function kopWeeks(){
   const ls=ledgerStart();const out=[];
@@ -157,7 +158,7 @@ function kopWeeks(){
   for(let i=0;i<out.length;i++){if(typeof out[i].balance!=="number"&&i>0&&typeof out[i-1].balance==="number")out[i].balance=out[i-1].balance+out[i].saved}
   const curMon=mondayOf(todayMs());
   for(let m=mondayOf(parseD(ls));m<=curMon;m+=7*DAY){const L=weekLedger(m);
-    out.push({monday:iso(m),saved:r2(L.saved),oneoff:r2(L.oneoff),income:r2(L.income),balance:r2(totalEUR(null,m+6*DAY)),computed:true,inc:L.inc,exp:L.exp,n:L.n})}
+    out.push({monday:iso(m),saved:r2(L.saved),oneoff:r2(L.oneoff),income:r2(L.income),balance:r2(totalEUR(null,m+6*DAY)),computed:true,inc:L.inc,exp:L.exp,n:L.n,...(L.note?{note:L.note}:{})})}
   return out;
 }
 function rateAt(dateIso){const keys=Object.keys(D.rates||{}).sort();let best=null;for(const k of keys){if(k<=dateIso)best=k;else break}if(!best&&keys.length)best=keys[0];return best?{date:best,rate:D.rates[best]}:null}
@@ -683,6 +684,7 @@ function openOp(id,preset){
     const t=nowIso();const o={id:ex?ex.id:uid(),type:st.type,amount:v,accountId:st.accountId,categoryId:st.categoryId,date:st.date,tagIds:[...st.tagIds].filter(x=>D.tags[x]&&!D.tags[x].deleted),
       comment:st.comment.trim(),oneoff:!!st.oneoff,createdAt:ex?ex.createdAt||t:t,updatedAt:t};
     if(!o.comment)delete o.comment;if(!o.oneoff)delete o.oneoff;if(!o.tagIds.length)delete o.tagIds;
+    if(accCur(o.accountId)!=="EUR"){const r=fxRate(accCur(o.accountId));if(r)o.eur=r2(v/r)}
     D.ops[o.id]=o;closeSheet();changed();
     toast(weekToast(o));
   }
