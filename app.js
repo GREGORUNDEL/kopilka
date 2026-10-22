@@ -188,7 +188,7 @@ function weekStatus(mondayIso){
 const TABS=[["overview","Обзор","home"],["ops","Операции","list"],["kopilka","Копилка","kanji"],["charts","Графики","chart"],["accounts","Счета","wallet"]];
 function renderTabs(){
   $("tabs").innerHTML=TABS.map(([id,label,ic])=>`<button class="tab" data-act="tab" data-v="${id}" ${UI.tab===id?'aria-current="page"':""}>${ic==="kanji"?'<span class="kanji">貯</span>':svgI(ic)}<span>${label}</span></button>`).join("");
-  $("fab").innerHTML=svgI("plus");$("fab").hidden=!(UI.tab==="overview"||UI.tab==="ops");
+  $("fab").innerHTML=svgI("plus");$("fab").hidden=!(UI.tab==="overview"||UI.tab==="ops"||UI.tab==="accounts");$("fab").setAttribute("aria-label",UI.tab==="accounts"?"Добавить счёт":"Добавить операцию");
 }
 function topBar(left,right){
   return `<div class="top"><div class="top-in">${left||'<span style="width:36px"></span>'}
@@ -232,11 +232,10 @@ function renderOverview(){
     const tg=(o.tagIds&&o.tagIds.length)?o.tagIds:["_none"];for(const t of tg){by[k].tags[t]=(by[k].tags[t]||0)+v}}
   const rows=Object.entries(by).map(([id,x])=>({id,...x,c:category(id)||{name:"Без категории",color:"#8E8E93",icon:"help-circle"}})).sort((a,b)=>b.v-a.v);
   const max=rows.length?rows[0].v:1;
-  let h=topBar(`<button class="icon-btn" data-act="settings" aria-label="Настройки">${svgI("gear")}</button>`,`<span style="width:36px"></span>`);
-  h+=`<main class="wrap">`;
+  let h=`<main class="wrap"><div class="sticky"><div class="sticky-in"><div class="ov-head"><button class="icon-btn" data-act="settings" aria-label="Настройки">${svgI("gear")}</button>
+    <div class="acc-pick"><button data-act="accpick" data-scope="ov">${esc(accLabel(sel))} ${svgI("chevD")}</button><div class="big num">${nf2.format(total)}<small>€</small></div></div><span></span></div></div></div>`;
+  h+=syncBanner();
   if(!getAuth()&&!accounts().length)h+=onboardCard();
-  h+=`<div class="acc-pick"><button data-act="accpick" data-scope="ov">${esc(accLabel(sel))} ${svgI("chevD")}</button>
-    <div class="big num">${nf2.format(total)}<small>€</small></div></div>`;
   h+=`<div class="ov-grid"><div style="display:flex;flex-direction:column;gap:16px">`;
   h+=`<div class="seg" role="group" aria-label="Тип"><button data-act="ovtype" data-v="expense" aria-pressed="${type==="expense"}">Расходы</button><button data-act="ovtype" data-v="income" aria-pressed="${type==="income"}">Доходы</button></div>`;
   h+=`<section class="card">${periodControls("ov",p)}`;
@@ -260,6 +259,11 @@ function renderOverview(){
   h+=`</div></div></main>`;
   after(()=>bindCustomRange("ov"));
   return h;
+}
+function syncBanner(){
+  if(syncState==="auth")return `<button class="banner" data-act="settings" style="text-align:left">GitHub не принимает токен (истёк или отозван). Открой настройки и вставь новый. Записи пока сохраняются на телефоне.</button>`;
+  if(syncState==="norepo")return `<button class="banner" data-act="settings" style="text-align:left">Нет доступа к репозиторию с данными. Проверь токен в настройках.</button>`;
+  return "";
 }
 function onboardCard(){return `<section class="card" style="display:flex;flex-direction:column;gap:10px"><h2 style="margin:0;font-size:20px">Подключи хранилище</h2>
   <p class="sub" style="margin:0">Данные хранятся на устройстве и в приватном репозитории <b>kopilka-data</b>. Без сети всё работает, синхронизация пройдёт сама.</p>
@@ -305,13 +309,13 @@ function renderOps(){
   if(q)ops=ops.filter(o=>{const c=category(o.categoryId);const hay=[c&&c.name,o.comment,(account(o.accountId)||{}).name,...(o.tagIds||[]).map(t=>(D.tags[t]||{}).name)].join(" ").toLowerCase();return hay.includes(q)||String(o.amount).includes(q)});
   ops.sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:(b.createdAt||"").localeCompare(a.createdAt||""));
   const sumE=ops.filter(o=>o.type==="expense").reduce((a,o)=>a+opEUR(o),0),sumI=ops.filter(o=>o.type==="income").reduce((a,o)=>a+opEUR(o),0);
-  let h=topBar(`<button class="icon-btn" data-act="accpick" data-scope="ops" aria-label="Выбор счетов">${svgI("wallet")}</button>`,`<span style="width:36px"></span>`);
-  h+=`<main class="wrap"><div class="head"><div><h1 class="title">Операции</h1><div class="sub">${esc(accLabel(sel))}${S.cat?" · "+esc((category(S.cat)||{}).name||""):""}</div></div></div>`;
+  let h=`<main class="wrap"><div class="sticky"><div class="sticky-in">`;
+  h+=`<div class="head"><div><h1 class="title sm">Операции</h1><div class="sub">${esc(accLabel(sel))}${S.cat?" · "+esc((category(S.cat)||{}).name||""):""}</div></div><button class="icon-btn" data-act="accpick" data-scope="ops" aria-label="Выбор счетов">${svgI("wallet")}</button></div>`;
   h+=`<div class="searchbox">${svgI("search")}<input id="opsq" type="search" placeholder="Поиск: категория, тег, комментарий, сумма" value="${esc(S.q||"")}" autocomplete="off"></div>`;
   h+=`<div class="seg" role="group" aria-label="Тип">${[["all","Все"],["expense","Расходы"],["income","Доходы"],["transfer","Переводы"]].map(([k,l])=>`<button data-act="opsf" data-v="${k}" aria-pressed="${S.filter===k}">${l}</button>`).join("")}</div>`;
-  h+=`<section class="card">${periodControls("ops",p)}
-    <div class="sub" style="margin-top:10px;display:flex;gap:14px;flex-wrap:wrap;justify-content:center">${S.filter!=="income"&&S.filter!=="transfer"?`<span>Расходы: <b class="num" style="color:var(--ink)">${nf2.format(sumE)} €</b></span>`:""}${S.filter!=="expense"&&S.filter!=="transfer"?`<span>Доходы: <b class="num pos-t">${nf2.format(sumI)} €</b></span>`:""}${S.filter==="transfer"?`<span>${ops.length} записей</span>`:""}</div>
-    ${S.cat?`<button class="btn plain" style="margin-top:10px;padding:8px" data-act="clearcat">Показать все категории</button>`:""}</section>`;
+  h+=`<div>${periodControls("ops",p)}
+    <div class="sub" style="margin-top:6px;display:flex;gap:14px;flex-wrap:wrap;justify-content:center">${S.filter!=="income"&&S.filter!=="transfer"?`<span>Расходы: <b class="num" style="color:var(--ink)">${nf2.format(sumE)} €</b></span>`:""}${S.filter!=="expense"&&S.filter!=="transfer"?`<span>Доходы: <b class="num pos-t">${nf2.format(sumI)} €</b></span>`:""}${S.filter==="transfer"?`<span>${ops.length} записей</span>`:""}</div>
+    ${S.cat?`<button class="btn plain" style="margin-top:8px;padding:8px" data-act="clearcat">Показать все категории</button>`:""}</div></div></div>`;
   if(!ops.length)h+=`<div class="card empty"><b>Ничего не найдено</b>Измени период или фильтр.</div>`;
   else{let day=null,buf="";const flush=()=>{if(day){h+=`<p class="day-h">${esc(longDay(parseD(day)))}</p><div class="list">${buf}</div>`}};
     for(const o of ops){if(o.date!==day){flush();day=o.date;buf=""}buf+=opRow(o)}flush()}
@@ -344,30 +348,30 @@ function bindCustomRange(scope){
 /* ================= KOPILKA ================= */
 function renderKopilka(){
   const K=kNow(),c=kcfg(),ws=K.ws,cr=K.r,m=K.m;
-  let h=topBar(`<button class="icon-btn" data-act="ksettings" aria-label="Настройки Копилки">${svgI("gear")}</button>`,`<span style="width:36px"></span>`);
-  h+=`<main class="wrap"><header class="head"><div><h1 class="title">Копилка</h1><div class="sub">${ws.length?(()=>{const lm=parseD(ws[ws.length-1].monday);return "Неделя "+dm(lm)+"–"+dmy(lm+6*DAY)})():"Нет недель"}</div></div><div class="hanko" aria-hidden="true">貯</div></header>`;
+  let h=`<main class="wrap"><header class="head"><div><h1 class="title">Копилка</h1><div class="sub">${ws.length?(()=>{const lm=parseD(ws[ws.length-1].monday);return "Неделя "+dm(lm)+"–"+dmy(lm+6*DAY)})():"Нет недель"}</div></div>
+    <div style="display:flex;align-items:center;gap:12px"><button class="icon-btn" data-act="ksettings" aria-label="Настройки Копилки">${svgI("gear")}</button><div class="hanko" aria-hidden="true">貯</div></div></header>`;
   if(ws.length&&!cr)h+=`<div class="banner">Нет курса иены. Подключись к интернету или укажи курс вручную в настройках Копилки.</div>`;
   if(!m){h+=`<div class="card empty"><b>Пока нечего считать</b>Добавь неделю или операции.</div></main>`;return h}
   const b=m.budgets[UI.budget];
   h+=`<div class="kcols"><div class="kcol">`;
-  h+=`<section class="card hero"><div class="sub" style="margin:0 0 2px">Накоплено</div><div class="big num">${eur(m.bal)}<small>€</small></div>
+  h+=`<section class="card hero" id="kHero"><div class="sub" style="margin:0 0 2px">Накоплено</div><div class="big num">${eur(m.bal)}<small>€</small></div>
     <div class="hero-row"><div class="stat"><div class="v num">${eur(m.pace)}</div><div class="k">${m.n>=c.window?"темп "+m.win+" нед · всё время "+eur(m.all):"темп, €/нед · "+m.n+" нед"}${Math.abs(m.netPace-m.pace)>=1?"<br>с разовыми "+eur(m.netPace):""}</div></div>
     <div class="stat"><div class="v num">${m.left}</div><div class="k">недель до ${dmy(parseD(c.deadline))} · <span class="jp">あと</span></div></div>
     <div class="stat"><div class="v num">${nf1.format(cr.rate)}</div><div class="k">¥ за 1 € · ${cr.manual?"вручную":dm(parseD(cr.date))}</div></div></div></section>`;
-  h+=`<div class="seg" role="group" aria-label="Бюджет жизни"><button data-act="budget" data-v="mine" aria-pressed="${UI.budget==="mine"}">Мой бюджет<span>¥${nf0.format(c.mine)}/мес</span></button><button data-act="budget" data-v="comfort" aria-pressed="${UI.budget==="comfort"}">Комфорт<span>¥${nf0.format(c.comfort)}/мес</span></button></div>`;
-  h+=`<section class="schools">`+["SNG","KAI"].map((s,i)=>{const x=b[s],col=i?"var(--series-2)":"var(--series-1)",C=2*Math.PI*22,p=Math.max(0,Math.min(1,x.progress));
+  h+=`<div class="seg" id="kSeg" role="group" aria-label="Бюджет жизни"><button data-act="budget" data-v="mine" aria-pressed="${UI.budget==="mine"}">Мой бюджет<span>¥${nf0.format(c.mine)}/мес</span></button><button data-act="budget" data-v="comfort" aria-pressed="${UI.budget==="comfort"}">Комфорт<span>¥${nf0.format(c.comfort)}/мес</span></button></div>`;
+  h+=`<section class="schools" id="kSchools">`+["SNG","KAI"].map((s,i)=>{const x=b[s],col=i?"var(--series-2)":"var(--series-1)",C=2*Math.PI*22,p=Math.max(0,Math.min(1,x.progress));
     return `<article class="card school"><div class="school-top"><svg class="ring" viewBox="0 0 52 52" role="img" aria-label="${s}: ${nf1.format(x.progress*100)}%"><circle class="track" cx="26" cy="26" r="22"/>
       <circle class="fill" cx="26" cy="26" r="22" stroke="${col}" stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${(C*(1-p)).toFixed(1)}"/><text x="26" y="27">${nf0.format(x.progress*100)}%</text></svg>
       <div style="min-width:0"><h3><span class="dot" style="background:${col}"></span>${s}</h3><div class="goal num">цель ${eur(x.goal)} €</div></div></div>
       <div class="rows"><div class="r"><span class="k">Нужно/нед</span><span class="v num">${eur(x.need)}</span></div>
       <div class="r"><span class="k">Прогноз</span><span class="pill num ${x.fc>=0?"pos":"neg"}">${signed(x.fc)}</span></div>
       <div class="r"><span class="k">+ отпускные</span><span class="v num ${x.fcH>=0?"pos-t":"neg-t"}">${signed(x.fcH)}</span></div></div></article>`}).join("")+`</section>`;
-  h+=`<section><p class="section-label">Что изменилось за неделю</p><div class="card changes">${kChanges(ws,m,cr)}</div></section>`;
-  h+=`<section><p class="section-label">Недели</p><div class="list">${kWeekList(ws)}</div></section>`;
+  h+=`<section id="kChanges"><p class="section-label">Что изменилось за неделю</p><div class="card changes">${kChanges(ws,m,cr)}</div></section>`;
+  h+=`<section id="kWeeks"><p class="section-label">Недели</p><div class="list">${kWeekList(ws)}</div></section>`;
   h+=`</div><div class="kcol">`;
-  h+=`<section class="card chart-card"><h2>Путь к цели</h2><div class="cap" id="pathCap"></div><div class="chart" id="pathChart"></div><div class="legend" id="pathLegend"></div></section>`;
-  h+=`<section class="card chart-card"><h2>Недели</h2><div class="cap" id="barsCap"></div><div class="chart" id="barsChart"></div><div class="legend" id="barsLegend"></div></section>`;
-  h+=`<section class="card chart-card"><h2>Курс иены</h2><div class="cap" id="rateCap">¥ за 1 €, последние 90 дней</div><div class="chart" id="rateChart"></div>
+  h+=`<section class="card chart-card" id="kPathC"><h2>Путь к цели</h2><div class="cap" id="pathCap"></div><div class="chart" id="pathChart"></div><div class="legend" id="pathLegend"></div></section>`;
+  h+=`<section class="card chart-card" id="kBarsC"><h2>Недели</h2><div class="cap" id="barsCap"></div><div class="chart" id="barsChart"></div><div class="legend" id="barsLegend"></div></section>`;
+  h+=`<section class="card chart-card" id="kRateC"><h2>Курс иены</h2><div class="cap" id="rateCap">¥ за 1 €, последние 90 дней</div><div class="chart" id="rateChart"></div>
     <div class="note">Выше курс — дешевле цель. Каждые 5 ¥ меняют цель KAI примерно на ${eur(Math.abs(goal(c[UI.budget],c.KAI,cr.rate-5,c)-goal(c[UI.budget],c.KAI,cr.rate,c)))} €.</div></section>`;
   h+=`</div></div><p class="sub" style="text-align:center;font-size:12px">Прогноз = накоплено + темп × ${m.left} нед (${m.left-c.extraPayouts} + ${c.extraPayouts} выплата) · отпускные ${eur(c.holidayEur)} € · недели с ${dmy(parseD(ledgerStart()))} считаются из операций</p></main>`;
   after(()=>{kPath(ws,m);kBars(ws,m);kRate()});
@@ -411,9 +415,10 @@ function attachTip(box,points,fmt,onPick){
     if(fmt){tip.hidden=false;tip.innerHTML=fmt(best);let left=best.x*sx;const half=tip.offsetWidth/2;left=Math.max(half,Math.min(r.width-half,left));tip.style.left=left+"px";tip.style.top=(best.y*sx-10)+"px"}
     if(cross){cross.setAttribute("x1",best.x);cross.setAttribute("x2",best.x);cross.style.display=""}
     if(mark){mark.setAttribute("cx",best.x);mark.setAttribute("cy",best.y);mark.style.display=""}
-    if(onPick&&ev.type==="pointerdown")onPick(best);}
+    return best}
   function hide(){tip.hidden=true;if(cross)cross.style.display="none";if(mark)mark.style.display="none"}
-  svg.addEventListener("pointermove",at);svg.addEventListener("pointerdown",at);svg.addEventListener("pointerleave",hide);
+  if(fmt){svg.addEventListener("pointermove",at);svg.addEventListener("pointerdown",at);svg.addEventListener("pointerleave",hide)}
+  if(onPick)svg.addEventListener("click",ev=>{const b=at(ev);if(b)onPick(b)});
 }
 function kPath(ws,m){
   const c=kcfg(),W=340,H=210,L0=34,R=58,T=10,B=22,g=m.budgets[UI.budget];
@@ -482,86 +487,81 @@ function kRate(){
 
 /* ================= CHARTS tab ================= */
 const CH_N={day:7,week:4,month:4,year:4};
-function buckets(group,page){
-  const t=todayMs(),d=new Date(t),out=[],N=CH_N[group]||4,off=(page||0)*N;
-  if(group==="day"){for(let i=N-1;i>=0;i--){const s=t-(i+off)*DAY;out.push({start:s,end:s+DAY,label:dm(s)})}}
-  else if(group==="week"){const m=mondayOf(t);for(let i=N-1;i>=0;i--){const s=m-(i+off)*7*DAY;out.push({start:s,end:s+7*DAY,label:dm(s)})}}
-  else if(group==="month"){for(let i=N-1;i>=0;i--){const k=i+off,s=Date.UTC(d.getUTCFullYear(),d.getUTCMonth()-k,1),e=Date.UTC(d.getUTCFullYear(),d.getUTCMonth()-k+1,1);out.push({start:s,end:e,label:MONTHS_S[new Date(s).getUTCMonth()],year:new Date(s).getUTCFullYear()})}}
-  else{const ys=opsList().map(o=>+o.date.slice(0,4));const y0=Math.min(d.getUTCFullYear(),...(ys.length?ys:[d.getUTCFullYear()]));for(let y=y0;y<=d.getUTCFullYear();y++)out.push({start:Date.UTC(y,0,1),end:Date.UTC(y+1,0,1),label:String(y)})}
+function buckets(group){
+  const t=todayMs(),d=new Date(t),out=[];
+  const first=opsList().reduce((m,o)=>(o.type==="income"||o.type==="expense")&&o.date<m?o.date:m,"9999");
+  const f=first==="9999"?t:parseD(first);
+  if(group==="day"){const n=Math.min(120,Math.max(7,Math.round((t-f)/DAY)+1));for(let i=n-1;i>=0;i--){const s=t-i*DAY;out.push({start:s,end:s+DAY,label:dm(s)})}}
+  else if(group==="week"){const m=mondayOf(t),n=Math.min(156,Math.max(4,Math.round((m-mondayOf(f))/(7*DAY))+1));for(let i=n-1;i>=0;i--){const s=m-i*7*DAY;out.push({start:s,end:s+7*DAY,label:dm(s)})}}
+  else if(group==="month"){const fd=new Date(f),n=Math.min(60,Math.max(4,(d.getUTCFullYear()-fd.getUTCFullYear())*12+d.getUTCMonth()-fd.getUTCMonth()+1));
+    for(let i=n-1;i>=0;i--){const s=Date.UTC(d.getUTCFullYear(),d.getUTCMonth()-i,1),e=Date.UTC(d.getUTCFullYear(),d.getUTCMonth()-i+1,1);out.push({start:s,end:e,label:MONTHS_S[new Date(s).getUTCMonth()],year:new Date(s).getUTCFullYear()})}}
+  else{const y0=new Date(f).getUTCFullYear();for(let y=y0;y<=d.getUTCFullYear();y++)out.push({start:Date.UTC(y,0,1),end:Date.UTC(y+1,0,1),label:String(y)})}
   return out;
 }
 function renderCharts(){
-  const S=UI.ch,sel=S.accs&&S.accs.length?S.accs:null;S.page=S.page||0;if(S.group==="year")S.page=0;const bs=buckets(S.group,S.page);
-  const firstOp=opsList().reduce((m,o)=>o.date<m?o.date:m,"9999");const canPrev=S.group!=="year"&&firstOp!=="9999"&&parseD(firstOp)<bs[0].start;
-  const rangeLbl=S.group==="year"?"":(S.group==="month"?bs[0].label+" "+bs[0].year+" – "+bs[bs.length-1].label+" "+bs[bs.length-1].year:dm(bs[0].start)+" – "+dmy(bs[bs.length-1].end-DAY));
+  const S=UI.ch,sel=S.accs&&S.accs.length?S.accs:null;const bs=buckets(S.group);
   const ops=opsList().filter(o=>(o.type==="income"||o.type==="expense")&&accFilterMatch(o,sel)&&!(account(o.accountId)||{}).exclude);
   for(const b of bs){b.inc=0;b.exp=0;b.cats={}}
   for(const o of ops){const t=parseD(o.date);const b=bs.find(x=>t>=x.start&&t<x.end);if(!b)continue;const v=opEUR(o);
     if(o.type==="income")b.inc+=v;else b.exp+=v;
     if((S.mode==="expense"&&o.type==="expense")||(S.mode==="income"&&o.type==="income")){b.cats[o.categoryId]=(b.cats[o.categoryId]||0)+v}}
-  let h=topBar(`<button class="icon-btn" data-act="accpick" data-scope="ch" aria-label="Выбор счетов">${svgI("wallet")}</button>`,`<span style="width:36px"></span>`);
-  h+=`<main class="wrap"><div class="head"><div><h1 class="title">Графики</h1><div class="sub">${esc(accLabel(sel))}</div></div></div>`;
+  let h=`<main class="wrap"><div class="head"><div><h1 class="title">Графики</h1><div class="sub">${esc(accLabel(sel))}</div></div><button class="icon-btn" data-act="accpick" data-scope="ch" aria-label="Выбор счетов">${svgI("wallet")}</button></div>`;
   h+=`<div class="seg" role="group" aria-label="Вид">${[["total","Общий"],["expense","Расходы"],["income","Доходы"]].map(([k,l])=>`<button data-act="chmode" data-v="${k}" aria-pressed="${S.mode===k}">${l}</button>`).join("")}</div>`;
   h+=`<section class="card chart-card"><div class="seg" role="group" aria-label="Группировка">${[["year","По годам"],["month","По месяцам"],["week","По неделям"],["day","По дням"]].map(([k,l])=>`<button data-act="chgroup" data-v="${k}" aria-pressed="${S.group===k}">${l}</button>`).join("")}</div>
-    ${S.group==="year"?"":`<div class="range"><button class="nav" data-act="chpage" data-v="1" aria-label="Раньше" ${canPrev?"":"disabled"}>${svgI("chevL")}</button><button class="lbl" data-act="chpage" data-v="0">${esc(rangeLbl)}</button><button class="nav" data-act="chpage" data-v="-1" aria-label="Позже" ${S.page>0?"":"disabled"}>${svgI("chevR")}</button></div>`}
-    <div class="chart" id="mainChart"></div><div class="legend" id="mainLegend"></div><div id="selDetail"></div></section>`;
-  // summary table
-  const tI=bs.reduce((a,b)=>a+b.inc,0),tE=bs.reduce((a,b)=>a+b.exp,0);
+    <div class="chart hs" id="mainChart"></div><div class="legend" id="mainLegend"></div><div id="selDetail"></div></section>`;
+  const N=Math.min(CH_N[S.group]||4,bs.length),last=bs.slice(-N),tI=last.reduce((a,b)=>a+b.inc,0),tE=last.reduce((a,b)=>a+b.exp,0);
+  const lbl=S.group==="year"?"все годы":"последние "+N+" "+({day:"дн.",week:"нед.",month:"мес."})[S.group];
   h+=`<section class="card"><div class="rows">
-    <div class="r" style="border-top:0"><span class="k">Доходы за ${({day:bs.length+" дн.",week:bs.length+" нед.",month:bs.length+" мес.",year:"все годы"})[S.group]}</span><span class="v num pos-t">${nf2.format(tI)} €</span></div>
+    <div class="r" style="border-top:0"><span class="k">Доходы · ${lbl}</span><span class="v num pos-t">${nf2.format(tI)} €</span></div>
     <div class="r"><span class="k">Расходы</span><span class="v num">${nf2.format(tE)} €</span></div>
     <div class="r"><span class="k">${tI-tE>=0?"Прибыль":"Убыток"}</span><span class="v num ${tI-tE>=0?"pos-t":"neg-t"}">${nf2.format(tI-tE)} €</span></div>
-    <div class="r"><span class="k">В среднем за период</span><span class="v num">${signed((tI-tE)/Math.max(1,bs.length))} €</span></div></div></section>`;
+    <div class="r"><span class="k">В среднем за ${({day:"день",week:"неделю",month:"месяц",year:"год"})[S.group]}</span><span class="v num">${signed((tI-tE)/Math.max(1,N))} €</span></div></div></section>`;
   h+=`</main>`;
-  after(()=>drawMain(bs));
+  after(()=>drawMain(bs,true));
   return h;
 }
-function drawMain(bs){
+function drawMain(bs,first){
   const S=UI.ch,box=$("mainChart");if(!box)return;
-  const W=340,H=200,L0=38,R=8,T=14,B=26,n=bs.length,slot=(W-L0-R)/n;
-  let s="",pts=[],legend="";
-  const yr=bs.find(b=>b.year)?String(bs[bs.length-1].year):"";
-  const lblEvery=1;
+  const prev=box.querySelector(".ch-scroll");const prevX=prev?prev.scrollLeft:null;
+  const cw=box.clientWidth||340,AX=38,vis=CH_N[S.group]||4,n=bs.length;
+  const slot=Math.max(48,(cw-AX)/vis),W=Math.round(n*slot),H=210,T=16,B=28;
+  let s="",ax="",pts=[],legend="";
+  let hi=10,need=null;
+  if(S.mode==="total"){hi=Math.max(10,...bs.flatMap(b=>[b.inc,b.exp,Math.abs(b.inc-b.exp)]));if(S.group==="week"){const K=kNow();if(K.m)need=K.m.budgets[UI.budget].KAI.need}hi=Math.max(hi,need||0)}
+  else{const key=S.mode==="expense"?"exp":"inc";hi=Math.max(10,...bs.map(b=>b[key]))}
+  hi*=1.1;const Y=v=>T+(hi-v)/hi*(H-T-B);
+  for(const v of niceTicks(0,hi,4)){s+=`<line class="grid" x1="0" x2="${W}" y1="${Y(v)}" y2="${Y(v)}"/>`;ax+=`<text class="axis" x="${AX-6}" y="${Y(v)+4}" text-anchor="end">${kfmt(v)}</text>`}
   if(S.mode==="total"){
-    const vals=bs.flatMap(b=>[b.inc,b.exp,Math.abs(b.inc-b.exp)]);let need=null;
-    if(S.group==="week"){const K=kNow();if(K.m)need=K.m.budgets[UI.budget].KAI.need}
-    const hi=Math.max(10,...vals,need||0)*1.1,Y=v=>T+(hi-v)/hi*(H-T-B),bw=Math.max(4,Math.min(20,(slot-14)/3));
-    for(const v of niceTicks(0,hi,4))s+=`<line class="grid" x1="${L0}" x2="${W-R}" y1="${Y(v)}" y2="${Y(v)}"/><text class="axis" x="${L0-6}" y="${Y(v)+4}" text-anchor="end">${kfmt(v)}</text>`;
-    bs.forEach((b,i)=>{const cx=L0+slot*(i+.5),p=b.inc-b.exp;const sel=S.sel===i;
-      s+=`<path d="${barPath(cx-bw-1,bw,Y,b.inc)}" fill="var(--inc)" opacity="${S.sel==null||sel?1:.45}"/>`;
-      s+=`<path d="${barPath(cx,bw,Y,b.exp)}" fill="var(--exp)" opacity="${S.sel==null||sel?1:.45}"/>`;
-      s+=`<path d="${barPath(cx+bw+1,bw,Y,Math.abs(p))}" fill="${p>=0?"var(--profit)":"var(--loss)"}" opacity="${S.sel==null||sel?1:.45}"/>`;
-      if((n-1-i)%lblEvery===0)s+=`<text class="axis" x="${cx}" y="${H-10}" text-anchor="middle">${b.label}</text>`;
+    const bw=Math.max(6,Math.min(22,(slot-18)/3));
+    bs.forEach((b,i)=>{const cx=slot*(i+.5),p=b.inc-b.exp,on=S.sel==null||S.sel===i;
+      s+=`<path d="${barPath(cx-bw-2,bw,Y,b.inc)}" fill="var(--inc)" opacity="${on?1:.4}"/><path d="${barPath(cx,bw,Y,b.exp)}" fill="var(--exp)" opacity="${on?1:.4}"/><path d="${barPath(cx+bw+2,bw,Y,Math.abs(p))}" fill="${p>=0?"var(--profit)":"var(--loss)"}" opacity="${on?1:.4}"/>`;
+      s+=`<text class="axis" x="${cx}" y="${H-10}" text-anchor="middle">${b.label}</text>`;
       pts.push({x:cx,y:Y(Math.max(b.inc,b.exp,Math.abs(p))),i,b})});
-    if(need){s+=`<line x1="${L0}" x2="${W-R}" y1="${Y(need)}" y2="${Y(need)}" stroke="var(--series-2)" stroke-width="1.5" stroke-dasharray="6 4"/><text class="lbl" x="${L0+4}" y="${Y(need)-4}" text-anchor="start" fill="var(--series-2)">норма KAI ${eur(need)}</text>`}
-    legend=`<span><i style="background:var(--inc)"></i>доходы</span><span><i style="background:var(--exp)"></i>расходы</span><span><i style="background:var(--profit)"></i>прибыль</span><span><i style="background:var(--loss)"></i>убыток</span>`+(need?`<span><i class="dash" style="background:repeating-linear-gradient(90deg,var(--series-2) 0 4px,transparent 4px 7px)"></i>норма недели</span>`:"");
+    if(need){s+=`<line x1="0" x2="${W}" y1="${Y(need)}" y2="${Y(need)}" stroke="var(--series-2)" stroke-width="1.5" stroke-dasharray="6 4"/>`;ax+=`<text class="lbl" x="${AX-6}" y="${Y(need)+4}" text-anchor="end" fill="var(--series-2)">${eur(need)}</text>`}
+    legend=`<span><i style="background:var(--inc)"></i>доходы</span><span><i style="background:var(--exp)"></i>расходы</span><span><i style="background:var(--profit)"></i>прибыль</span><span><i style="background:var(--loss)"></i>убыток</span>`+(need?`<span><i class="dash" style="background:repeating-linear-gradient(90deg,var(--series-2) 0 4px,transparent 4px 7px)"></i>норма KAI ${eur(need)} €/нед</span>`:"");
   }else{
-    const key=S.mode==="expense"?"exp":"inc";const hi=Math.max(10,...bs.map(b=>b[key]))*1.1,Y=v=>T+(hi-v)/hi*(H-T-B),bw=Math.max(6,Math.min(26,slot-6));
-    for(const v of niceTicks(0,hi,4))s+=`<line class="grid" x1="${L0}" x2="${W-R}" y1="${Y(v)}" y2="${Y(v)}"/><text class="axis" x="${L0-6}" y="${Y(v)+4}" text-anchor="end">${kfmt(v)}</text>`;
-    const used={};
-    bs.forEach((b,i)=>{const cx=L0+slot*(i+.5);let acc=0;const ents=Object.entries(b.cats).sort((a,b2)=>b2[1]-a[1]);
-      ents.forEach(([cid,v],j)=>{const c=category(cid)||{color:"#8E8E93",name:"Без категории"};used[cid]=(used[cid]||0)+v;const y1=Y(acc+v),y0=Y(acc);
-        s+=`<rect x="${cx-bw/2}" y="${y1}" width="${bw}" height="${Math.max(0,y0-y1-(j<ents.length-1?1:0))}" fill="${esc(c.color)}" rx="${j===ents.length-1?3:0}" opacity="${S.sel==null||S.sel===i?1:.45}"/>`;acc+=v});
-      if((n-1-i)%lblEvery===0)s+=`<text class="axis" x="${cx}" y="${H-10}" text-anchor="middle">${b.label}</text>`;
-      pts.push({x:cx,y:Y(acc),i,b})});
-    legend=Object.entries(used).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([cid])=>{const c=category(cid)||{color:"#8E8E93",name:"Без категории"};return `<span><i style="background:${esc(c.color)}"></i>${esc(c.name)}</span>`}).join("");
+    const bw=Math.max(10,Math.min(34,slot-22));const used={};
+    bs.forEach((b,i)=>{const cx=slot*(i+.5);let acc=0;const ents=Object.entries(b.cats).sort((a,c)=>c[1]-a[1]);
+      ents.forEach(([cid,v],j)=>{const c=category(cid)||{color:"#8E8E93"};used[cid]=(used[cid]||0)+v;const y1=Y(acc+v),y0=Y(acc);
+        s+=`<rect x="${cx-bw/2}" y="${y1}" width="${bw}" height="${Math.max(0,y0-y1-(j<ents.length-1?1:0))}" fill="${esc(c.color)}" rx="${j===ents.length-1?4:0}" opacity="${S.sel==null||S.sel===i?1:.4}"/>`;acc+=v});
+      s+=`<text class="axis" x="${cx}" y="${H-10}" text-anchor="middle">${b.label}</text>`;pts.push({x:cx,y:Y(acc),i,b})});
+    legend=Object.entries(used).sort((a,c)=>c[1]-a[1]).slice(0,8).map(([cid])=>{const c=category(cid)||{color:"#8E8E93",name:"Без категории"};return `<span><i style="background:${esc(c.color)}"></i>${esc(c.name)}</span>`}).join("");
   }
-  s+=`<line x1="${L0}" x2="${W-R}" y1="${H-B}" y2="${H-B}" stroke="var(--ink-muted)" stroke-width="1"/>`;
-  if(yr&&S.group!=="year")s+=`<text class="axis" x="${(L0+W-R)/2}" y="${H}" text-anchor="middle"></text>`;
-  box.innerHTML=svgEl(W,H,s);$("mainLegend").innerHTML=legend;
-  attachTip(box,pts,q=>{const b=q.b;return S.mode==="total"?`${esc(b.label)}${b.year?" "+b.year:""}<br>+${eur(b.inc)} / −${eur(b.exp)} · <b>${signed(b.inc-b.exp)} €</b>`:`${esc(b.label)}<br><b>${eur(S.mode==="expense"?b.exp:b.inc)} €</b>`},
-    q=>{UI.ch.sel=UI.ch.sel===q.i?null:q.i;drawMain(bs)});
+  s+=`<line x1="0" x2="${W}" y1="${H-B}" y2="${H-B}" stroke="var(--ink-muted)" stroke-width="1"/>`;
+  box.innerHTML=`<div class="ch-axis"><svg viewBox="0 0 ${AX} ${H}" width="${AX}" height="${H}">${ax}</svg></div><div class="ch-scroll"><div class="ch-inner" style="width:${W}px"><svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">${s}</svg></div></div>`;
+  $("mainLegend").innerHTML=legend;
+  const sc=box.querySelector(".ch-scroll");sc.scrollLeft=(!first&&prevX!=null)?prevX:sc.scrollWidth;
+  attachTip(box.querySelector(".ch-inner"),pts,null,q=>{UI.ch.sel=UI.ch.sel===q.i?null:q.i;drawMain(bs)});
   const d=$("selDetail");
-  if(S.sel!=null&&bs[S.sel]){const b=bs[S.sel];let x=`<div class="sel-detail"><div><b>${esc(b.label)}${b.year?" "+b.year:""}</b><span class="muted">${S.group==="week"?dm(b.start)+"–"+dm(b.end-DAY):""}</span></div>`;
+  if(S.sel!=null&&bs[S.sel]){const b=bs[S.sel];let x=`<div class="sel-detail"><div><b>${esc(b.label)}${b.year?" "+b.year:""}</b><span class="muted">${S.group==="week"?dm(b.start)+"–"+dmy(b.end-DAY):""}</span></div>`;
     if(S.mode==="total")x+=`<div><span>Доходы</span><span class="num pos-t">${nf2.format(b.inc)} €</span></div><div><span>Расходы</span><span class="num">${nf2.format(b.exp)} €</span></div><div><span>${b.inc-b.exp>=0?"Прибыль":"Убыток"}</span><span class="num ${b.inc-b.exp>=0?"pos-t":"neg-t"}">${nf2.format(b.inc-b.exp)} €</span></div>`;
     else x+=Object.entries(b.cats).sort((a,c)=>c[1]-a[1]).map(([cid,v])=>`<div><span>${esc((category(cid)||{name:"Без категории"}).name)}</span><span class="num">${nf2.format(v)} €</span></div>`).join("")||'<div class="muted">Нет операций</div>';
-    d.innerHTML=x+`</div>`}else d.innerHTML=`<p class="note" style="text-align:center">Нажми на столбец, чтобы увидеть суммы.</p>`;
+    d.innerHTML=x+`</div>`}else d.innerHTML=`<p class="note" style="text-align:center">Листай график вбок. Нажми на столбец, чтобы увидеть суммы.</p>`;
 }
 
 /* ================= ACCOUNTS tab ================= */
 function renderAccounts(){
-  let h=topBar(`<span style="width:36px"></span>`,`<button class="icon-btn fill" data-act="newacc" aria-label="Добавить счёт">${svgI("plus")}</button>`);
-  h+=`<main class="wrap"><div class="head"><div><h1 class="title">Счета</h1></div></div>`;
+  let h=`<main class="wrap"><div class="head"><div><h1 class="title">Счета</h1></div></div>`;
   h+=`<div class="acc-pick"><span class="sub">Итого</span><div class="big num">${nf2.format(totalEUR(null))}<small>€</small></div></div>`;
   h+=`<div class="btn-row"><button class="qbtn" data-act="transfer">${svgI("swap")}Создать перевод</button><button class="qbtn" data-act="transfers">${svgI("history")}История переводов</button></div>`;
   const accs=accounts();
@@ -1011,7 +1011,6 @@ document.addEventListener("click",e=>{
     case "ksettings":openKSettings();break;
     case "chmode":UI.ch.mode=v;UI.ch.sel=null;render();break;
     case "chgroup":UI.ch.group=v;UI.ch.sel=null;UI.ch.page=0;render();break;
-    case "chpage":UI.ch.page=v==="0"?0:Math.max(0,(UI.ch.page||0)+(+v));UI.ch.sel=null;render();break;
     case "newacc":openAccount(null);break;
     case "editacc":openAccount(v);break;
     case "transfer":openTransfer(null);break;
@@ -1020,7 +1019,7 @@ document.addEventListener("click",e=>{
     case "taglist":openTagList();break;
   }
 });
-$("fab").onclick=()=>openOp(null);
+$("fab").onclick=()=>UI.tab==="accounts"?openAccount(null):openOp(null);
 document.addEventListener("keydown",e=>{
   if(e.key==="Escape"&&stack.length){closeSheet();return}
   if(!stack.length&&(e.key==="n"||e.key==="т")&&!/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)){e.preventDefault();openOp(null)}
