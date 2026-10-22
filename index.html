@@ -41,7 +41,7 @@ html{-webkit-text-size-adjust:100%;background:var(--surface)}
 [hidden]{display:none!important}
 body{margin:0;background:var(--surface);color:var(--ink);font-family:var(--font-sans);font-size:17px;line-height:22px;-webkit-font-smoothing:antialiased;
   padding-top:env(safe-area-inset-top,0px);padding-bottom:calc(var(--tabh) + env(safe-area-inset-bottom,0px) + 24px)}
-body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--nav)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
 button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;-webkit-tap-highlight-color:transparent;padding:0}
 button:focus-visible,input:focus-visible,select:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--ai);outline-offset:2px}
 input,select{font:inherit;color:inherit}
@@ -53,7 +53,7 @@ svg.i{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stro
 /* page frame */
 .page{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
 .wrap{max-width:640px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
-.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--nav);-webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px);
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--surface);
   margin:0 calc(-1 * max(16px,env(safe-area-inset-right,0px))) 0 calc(-1 * max(16px,env(safe-area-inset-left,0px)));
   padding:8px max(16px,env(safe-area-inset-right,0px)) 8px max(16px,env(safe-area-inset-left,0px))}
 .top-in{max-width:640px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:36px}
@@ -201,14 +201,16 @@ h1.title{margin:4px 0 0;font-size:34px;line-height:41px;font-weight:700;letter-s
 .scrim{position:fixed;inset:0;background:var(--scrim);z-index:30;opacity:0;transition:opacity .2s}
 .scrim.open{opacity:1}
 .sheet{position:fixed;left:50%;bottom:0;width:min(640px,100%);z-index:31;background:var(--surface);border-radius:var(--r-lg) var(--r-lg) 0 0;
-  max-height:94vh;display:flex;flex-direction:column;transform:translate(-50%,100%);transition:transform .28s cubic-bezier(.2,.8,.2,1)}
+  max-height:calc(100% - env(safe-area-inset-top,0px) - 10px);display:flex;flex-direction:column;transform:translate(-50%,100%);transition:transform .28s cubic-bezier(.2,.8,.2,1)}
 .sheet.open{transform:translate(-50%,0)}
-.sheet.tall{height:94vh}
+.sheet.tall{height:calc(100% - env(safe-area-inset-top,0px) - 10px)}
 .sheet-head{flex:none;display:flex;justify-content:space-between;align-items:center;gap:8px;padding:12px max(16px,env(safe-area-inset-right,0px)) 8px max(16px,env(safe-area-inset-left,0px))}
 .sheet-head h2{margin:0;font-size:17px;font-weight:700;text-align:center;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.sheet-head button{color:var(--ai);font-size:17px;padding:4px 0;min-width:70px;text-align:left}
-.sheet-head button.done{font-weight:600;text-align:right}
-.sheet-head button:disabled{color:var(--ink-muted)}
+.sheet-head>button{color:var(--ai);font-size:17px;padding:4px 0;min-width:76px;text-align:left}
+.sheet-head>button.done{font-weight:600;text-align:right}
+.sheet-head>button:disabled{color:var(--ink-muted)}
+.sheet-head .seg{max-width:230px;margin:0 auto}
+.sheet-head .seg button{font-size:15px;padding:6px 10px}
 .sheet-body{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;padding:4px max(16px,env(safe-area-inset-right,0px)) calc(20px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:16px}
 .sheet-body.with-pad{padding-bottom:16px}
 .sheet-body>*{flex-shrink:0}
@@ -269,11 +271,14 @@ h1.title{margin:4px 0 0;font-size:34px;line-height:41px;font-weight:700;letter-s
 .tag-input{display:flex;gap:8px}
 .tag-input input{flex:1;border:1.5px solid var(--ai);border-radius:999px;padding:6px 12px;font-size:16px;background:var(--surface-raised);min-width:0}
 .comment{width:100%;border:0;border-radius:var(--r-md);background:var(--surface-raised);padding:12px 14px;font-size:16px}
-.keypad{flex:none;display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:8px max(8px,env(safe-area-inset-right,0px)) calc(8px + env(safe-area-inset-bottom,0px)) max(8px,env(safe-area-inset-left,0px));background:var(--surface-sunken)}
-.keypad button{height:46px;border-radius:9px;background:var(--surface-raised);font-size:22px;font-weight:500;box-shadow:0 1px 0 rgba(0,0,0,.15)}
-.keypad button.op{background:transparent;box-shadow:none;color:var(--ai);font-size:22px}
-.keypad button.ok{background:var(--ai);color:var(--on-ai);font-size:17px;font-weight:600}
-.keypad button.hide svg.i{width:22px;height:22px}
+.keypad{flex:none;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:10px max(8px,env(safe-area-inset-right,0px)) calc(10px + env(safe-area-inset-bottom,0px)) max(8px,env(safe-area-inset-left,0px));
+  background:var(--surface-sunken);border-radius:22px 22px 0 0;box-shadow:0 -1px 0 var(--line)}
+.keypad button{height:54px;border-radius:12px;background:var(--surface-raised);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;line-height:1}
+.keypad button b{font-size:26px;font-weight:400}
+.keypad button small{font-size:10px;letter-spacing:.18em;font-weight:600;color:var(--ink-muted);min-height:10px}
+.keypad button.flat{background:transparent;font-size:28px}
+.keypad button.flat svg.i{width:28px;height:28px}
+.keypad button:active{background:var(--line)}
 .toast{position:fixed;left:50%;transform:translate(-50%,20px);bottom:calc(var(--tabh) + env(safe-area-inset-bottom,0px) + 86px);z-index:40;background:var(--ink);color:var(--surface);
   border-radius:14px;padding:10px 14px;font-size:14px;line-height:19px;max-width:min(92vw,420px);opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;text-align:center}
 .toast.show{opacity:1;transform:translate(-50%,0)}

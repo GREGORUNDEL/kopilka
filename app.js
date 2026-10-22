@@ -344,7 +344,7 @@ function bindCustomRange(scope){
 /* ================= KOPILKA ================= */
 function renderKopilka(){
   const K=kNow(),c=kcfg(),ws=K.ws,cr=K.r,m=K.m;
-  let h=topBar(`<button class="icon-btn" data-act="ksettings" aria-label="Настройки Копилки">${svgI("gear")}</button>`,`<button class="icon-btn fill" data-act="kweek" aria-label="Неделя вручную">${svgI("plus")}</button>`);
+  let h=topBar(`<button class="icon-btn" data-act="ksettings" aria-label="Настройки Копилки">${svgI("gear")}</button>`,`<span style="width:36px"></span>`);
   h+=`<main class="wrap"><header class="head"><div><h1 class="title">Копилка</h1><div class="sub">${ws.length?(()=>{const lm=parseD(ws[ws.length-1].monday);return "Неделя "+dm(lm)+"–"+dmy(lm+6*DAY)})():"Нет недель"}</div></div><div class="hanko" aria-hidden="true">貯</div></header>`;
   if(ws.length&&!cr)h+=`<div class="banner">Нет курса иены. Подключись к интернету или укажи курс вручную в настройках Копилки.</div>`;
   if(!m){h+=`<div class="card empty"><b>Пока нечего считать</b>Добавь неделю или операции.</div></main>`;return h}
@@ -393,7 +393,7 @@ function kWeekList(ws){
   const all=ws.slice().reverse(),lim=UI.showAllWeeks?all:all.slice(0,6);
   return lim.map(w=>{const t=parseD(w.monday);
     const sub=(typeof w.balance==="number"?"остаток "+eur(w.balance)+" €":"")+((w.oneoff||0)>0?" · разовые −"+eur(w.oneoff):"")+((w.income||0)>0?" · доход +"+eur(w.income):"")+(w.note?" · "+esc(w.note):"")+(w.computed?" · из операций":"");
-    return `<button class="row" data-act="${w.computed?"weekops":"kweek"}" data-v="${esc(w.monday)}"><span class="ic" style="background:${w.computed?"var(--ai)":"var(--ink-muted)"}">${w.computed?svgI("list"):svgI("adjust")}</span>
+    return `<button class="row" ${w.computed?`data-act="weekops" data-v="${esc(w.monday)}"`:'tabindex="-1" style="cursor:default"'}><span class="ic" style="background:${w.computed?"var(--ai)":"var(--ink-muted)"}">${w.computed?svgI("list"):svgI("adjust")}</span>
       <div class="mid"><div class="t">${dm(t)}–${dmy(t+6*DAY)}</div><div class="s">${sub}</div></div><span class="amt num ${w.saved<0?"neg-t":""}">${signed(w.saved)}</span></button>`}).join("")
     +(all.length>6?`<button class="row" data-act="allweeks" style="color:var(--ai)"><div class="mid">${UI.showAllWeeks?"Свернуть":"Все недели ("+all.length+")"}</div></button>`:"");
 }
@@ -481,16 +481,19 @@ function kRate(){
 }
 
 /* ================= CHARTS tab ================= */
-function buckets(group){
-  const t=todayMs(),d=new Date(t),out=[];
-  if(group==="day"){for(let i=13;i>=0;i--){const s=t-i*DAY;out.push({start:s,end:s+DAY,label:dm(s)})}}
-  else if(group==="week"){const m=mondayOf(t);for(let i=11;i>=0;i--){const s=m-i*7*DAY;out.push({start:s,end:s+7*DAY,label:dm(s)})}}
-  else if(group==="month"){for(let i=11;i>=0;i--){const s=Date.UTC(d.getUTCFullYear(),d.getUTCMonth()-i,1),e=Date.UTC(d.getUTCFullYear(),d.getUTCMonth()-i+1,1);out.push({start:s,end:e,label:MONTHS_S[new Date(s).getUTCMonth()],year:new Date(s).getUTCFullYear()})}}
+const CH_N={day:7,week:4,month:4,year:4};
+function buckets(group,page){
+  const t=todayMs(),d=new Date(t),out=[],N=CH_N[group]||4,off=(page||0)*N;
+  if(group==="day"){for(let i=N-1;i>=0;i--){const s=t-(i+off)*DAY;out.push({start:s,end:s+DAY,label:dm(s)})}}
+  else if(group==="week"){const m=mondayOf(t);for(let i=N-1;i>=0;i--){const s=m-(i+off)*7*DAY;out.push({start:s,end:s+7*DAY,label:dm(s)})}}
+  else if(group==="month"){for(let i=N-1;i>=0;i--){const k=i+off,s=Date.UTC(d.getUTCFullYear(),d.getUTCMonth()-k,1),e=Date.UTC(d.getUTCFullYear(),d.getUTCMonth()-k+1,1);out.push({start:s,end:e,label:MONTHS_S[new Date(s).getUTCMonth()],year:new Date(s).getUTCFullYear()})}}
   else{const ys=opsList().map(o=>+o.date.slice(0,4));const y0=Math.min(d.getUTCFullYear(),...(ys.length?ys:[d.getUTCFullYear()]));for(let y=y0;y<=d.getUTCFullYear();y++)out.push({start:Date.UTC(y,0,1),end:Date.UTC(y+1,0,1),label:String(y)})}
   return out;
 }
 function renderCharts(){
-  const S=UI.ch,sel=S.accs&&S.accs.length?S.accs:null,bs=buckets(S.group);
+  const S=UI.ch,sel=S.accs&&S.accs.length?S.accs:null;S.page=S.page||0;if(S.group==="year")S.page=0;const bs=buckets(S.group,S.page);
+  const firstOp=opsList().reduce((m,o)=>o.date<m?o.date:m,"9999");const canPrev=S.group!=="year"&&firstOp!=="9999"&&parseD(firstOp)<bs[0].start;
+  const rangeLbl=S.group==="year"?"":(S.group==="month"?bs[0].label+" "+bs[0].year+" – "+bs[bs.length-1].label+" "+bs[bs.length-1].year:dm(bs[0].start)+" – "+dmy(bs[bs.length-1].end-DAY));
   const ops=opsList().filter(o=>(o.type==="income"||o.type==="expense")&&accFilterMatch(o,sel)&&!(account(o.accountId)||{}).exclude);
   for(const b of bs){b.inc=0;b.exp=0;b.cats={}}
   for(const o of ops){const t=parseD(o.date);const b=bs.find(x=>t>=x.start&&t<x.end);if(!b)continue;const v=opEUR(o);
@@ -500,11 +503,12 @@ function renderCharts(){
   h+=`<main class="wrap"><div class="head"><div><h1 class="title">Графики</h1><div class="sub">${esc(accLabel(sel))}</div></div></div>`;
   h+=`<div class="seg" role="group" aria-label="Вид">${[["total","Общий"],["expense","Расходы"],["income","Доходы"]].map(([k,l])=>`<button data-act="chmode" data-v="${k}" aria-pressed="${S.mode===k}">${l}</button>`).join("")}</div>`;
   h+=`<section class="card chart-card"><div class="seg" role="group" aria-label="Группировка">${[["year","По годам"],["month","По месяцам"],["week","По неделям"],["day","По дням"]].map(([k,l])=>`<button data-act="chgroup" data-v="${k}" aria-pressed="${S.group===k}">${l}</button>`).join("")}</div>
+    ${S.group==="year"?"":`<div class="range"><button class="nav" data-act="chpage" data-v="1" aria-label="Раньше" ${canPrev?"":"disabled"}>${svgI("chevL")}</button><button class="lbl" data-act="chpage" data-v="0">${esc(rangeLbl)}</button><button class="nav" data-act="chpage" data-v="-1" aria-label="Позже" ${S.page>0?"":"disabled"}>${svgI("chevR")}</button></div>`}
     <div class="chart" id="mainChart"></div><div class="legend" id="mainLegend"></div><div id="selDetail"></div></section>`;
   // summary table
   const tI=bs.reduce((a,b)=>a+b.inc,0),tE=bs.reduce((a,b)=>a+b.exp,0);
   h+=`<section class="card"><div class="rows">
-    <div class="r" style="border-top:0"><span class="k">Доходы за ${bs.length} ${({day:"дн.",week:"нед.",month:"мес.",year:"г."})[S.group]}</span><span class="v num pos-t">${nf2.format(tI)} €</span></div>
+    <div class="r" style="border-top:0"><span class="k">Доходы за ${({day:bs.length+" дн.",week:bs.length+" нед.",month:bs.length+" мес.",year:"все годы"})[S.group]}</span><span class="v num pos-t">${nf2.format(tI)} €</span></div>
     <div class="r"><span class="k">Расходы</span><span class="v num">${nf2.format(tE)} €</span></div>
     <div class="r"><span class="k">${tI-tE>=0?"Прибыль":"Убыток"}</span><span class="v num ${tI-tE>=0?"pos-t":"neg-t"}">${nf2.format(tI-tE)} €</span></div>
     <div class="r"><span class="k">В среднем за период</span><span class="v num">${signed((tI-tE)/Math.max(1,bs.length))} €</span></div></div></section>`;
@@ -517,11 +521,11 @@ function drawMain(bs){
   const W=340,H=200,L0=38,R=8,T=14,B=26,n=bs.length,slot=(W-L0-R)/n;
   let s="",pts=[],legend="";
   const yr=bs.find(b=>b.year)?String(bs[bs.length-1].year):"";
-  const lblEvery=n>8?Math.ceil(n/6):1;
+  const lblEvery=1;
   if(S.mode==="total"){
     const vals=bs.flatMap(b=>[b.inc,b.exp,Math.abs(b.inc-b.exp)]);let need=null;
     if(S.group==="week"){const K=kNow();if(K.m)need=K.m.budgets[UI.budget].KAI.need}
-    const hi=Math.max(10,...vals,need||0)*1.1,Y=v=>T+(hi-v)/hi*(H-T-B),bw=Math.max(3,Math.min(14,(slot-6)/3));
+    const hi=Math.max(10,...vals,need||0)*1.1,Y=v=>T+(hi-v)/hi*(H-T-B),bw=Math.max(4,Math.min(20,(slot-14)/3));
     for(const v of niceTicks(0,hi,4))s+=`<line class="grid" x1="${L0}" x2="${W-R}" y1="${Y(v)}" y2="${Y(v)}"/><text class="axis" x="${L0-6}" y="${Y(v)+4}" text-anchor="end">${kfmt(v)}</text>`;
     bs.forEach((b,i)=>{const cx=L0+slot*(i+.5),p=b.inc-b.exp;const sel=S.sel===i;
       s+=`<path d="${barPath(cx-bw-1,bw,Y,b.inc)}" fill="var(--inc)" opacity="${S.sel==null||sel?1:.45}"/>`;
@@ -659,8 +663,9 @@ function openOp(id,preset){
   }
   function drawPad(){
     const kp=sh.keypad;kp.hidden=!st.kb;if(!st.kb)return;
-    const keys=["7","8","9","⌫","4","5","6","−","1","2","3","+","hide","0",",","ok"];
-    kp.innerHTML=keys.map(k=>k==="hide"?`<button class="op hide" data-k="hide" aria-label="Скрыть клавиатуру">${svgI("kbd")}</button>`:k==="ok"?`<button class="ok" data-k="ok">Готово</button>`:k==="⌫"?`<button class="op" data-k="bs" aria-label="Стереть">${svgI("back")}</button>`:`<button class="${/[−+]/.test(k)?"op":""}" data-k="${k}">${k}</button>`).join("");
+    const L={"2":"АБВГ","3":"ДЕЖЗ","4":"ИЙКЛ","5":"МНОП","6":"РСТУ","7":"ФХЦЧ","8":"ШЩЪЫ","9":"ЬЭЮЯ"};
+    const keys=["1","2","3","4","5","6","7","8","9",",","0","bs"];
+    kp.innerHTML=keys.map(k=>k==="bs"?`<button class="flat" data-k="bs" aria-label="Стереть">${svgI("back")}</button>`:k===","?`<button class="flat" data-k=","><b>,</b></button>`:`<button data-k="${k}"><b>${k}</b><small>${L[k]||""}</small></button>`).join("");
     kp.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>press(b.dataset.k));
   }
   function press(k){
@@ -1005,7 +1010,8 @@ document.addEventListener("click",e=>{
     case "allweeks":UI.showAllWeeks=!UI.showAllWeeks;render();break;
     case "ksettings":openKSettings();break;
     case "chmode":UI.ch.mode=v;UI.ch.sel=null;render();break;
-    case "chgroup":UI.ch.group=v;UI.ch.sel=null;render();break;
+    case "chgroup":UI.ch.group=v;UI.ch.sel=null;UI.ch.page=0;render();break;
+    case "chpage":UI.ch.page=v==="0"?0:Math.max(0,(UI.ch.page||0)+(+v));UI.ch.sel=null;render();break;
     case "newacc":openAccount(null);break;
     case "editacc":openAccount(v);break;
     case "transfer":openTransfer(null);break;
