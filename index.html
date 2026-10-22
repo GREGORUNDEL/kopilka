@@ -22,10 +22,10 @@
   --ai:#2F4A8A; --ai-soft:#E3E8F5; --on-ai:#FFFFFF;
   --shu:#C8442E; --shu-soft:#FBE7E3; --matsu:#2E7D4F; --matsu-soft:#E2F2E8; --kin:#B5761A;
   --series-1:#3D5DB5; --series-2:#B5761A; --inc:#3E9A6A; --exp:#D9A22E; --profit:#4F86D6; --loss:#D9603E;
-  --scrim:rgba(0,0,0,.32); --nav:rgba(242,242,247,.88); --bar:rgba(249,249,251,.92);
+  --scrim:rgba(0,0,0,.32); --nav:rgba(242,242,247,.88); --bar:var(--surface-raised);
   --font-sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","Hiragino Sans","Noto Sans JP",system-ui,sans-serif;
   --font-rounded:ui-rounded,"SF Pro Rounded",-apple-system,"Hiragino Maru Gothic ProN",system-ui,sans-serif;
-  --r-sm:8px; --r-md:14px; --r-lg:22px; --tabh:56px;
+  --r-sm:8px; --r-md:14px; --r-lg:22px; --tabh:52px; --tabpad:max(calc(env(safe-area-inset-bottom,0px) - 16px),6px);
   --safe-top:env(safe-area-inset-top,0px); --top-gap:0px;
   color-scheme:light;
 }
@@ -35,15 +35,15 @@
   --ai:#8FA8F0; --ai-soft:#1A2340; --on-ai:#0B1020;
   --shu:#FF7A5C; --shu-soft:#3A1710; --matsu:#5FCB8A; --matsu-soft:#0F2A1A; --kin:#D9A24A;
   --series-1:#6D8CF0; --series-2:#B98226; --inc:#5FBF8A; --exp:#E0B04A; --profit:#7FA6F0; --loss:#F07E5C;
-  --scrim:rgba(0,0,0,.6); --nav:rgba(0,0,0,.84); --bar:rgba(22,22,24,.92); color-scheme:dark }}
+  --scrim:rgba(0,0,0,.6); --nav:rgba(0,0,0,.84); --bar:#161618; color-scheme:dark }}
 
 *{box-sizing:border-box}
-html{-webkit-text-size-adjust:100%;background:var(--surface)}
+html{-webkit-text-size-adjust:100%;background:var(--surface);overscroll-behavior:none}
 [hidden]{display:none!important}
 /* Home-screen app on iOS: the system draws its own fade under the status bar (WebKit bug 301994 can also report a 0 inset), so keep content clear of it */
 @media (display-mode: standalone){:root{--safe-top:max(env(safe-area-inset-top,0px),59px);--top-gap:18px}}
 body{margin:0;background:var(--surface);color:var(--ink);font-family:var(--font-sans);font-size:17px;line-height:22px;-webkit-font-smoothing:antialiased;
-  padding-top:calc(var(--safe-top) + var(--top-gap));padding-bottom:calc(var(--tabh) + env(safe-area-inset-bottom,0px) + 24px)}
+  padding-top:calc(var(--safe-top) + var(--top-gap));padding-bottom:calc(var(--tabh) + var(--tabpad) + 24px)}
 body::before{content:"";position:fixed;inset:0 0 auto;height:calc(var(--safe-top) + var(--top-gap));z-index:10;background:var(--surface)}
 button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;-webkit-tap-highlight-color:transparent;padding:0}
 button:focus-visible,input:focus-visible,select:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--ai);outline-offset:2px}
@@ -90,13 +90,14 @@ h1.title.sm{font-size:28px;line-height:34px;margin:0}
 
 /* tab bar */
 .tabbar{position:fixed;left:0;right:0;bottom:0;z-index:15;background:var(--bar);-webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px);
-  border-top:1px solid var(--line);padding:0 max(8px,env(safe-area-inset-right,0px)) env(safe-area-inset-bottom,0px) max(8px,env(safe-area-inset-left,0px))}
+  border-top:1px solid var(--line);padding:4px max(8px,env(safe-area-inset-right,0px)) var(--tabpad) max(8px,env(safe-area-inset-left,0px))}
+.tabbar::after{content:"";position:absolute;left:0;right:0;top:100%;height:120px;background:var(--bar)}
 .tabbar-in{max-width:640px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr);height:var(--tabh)}
 .tab{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:10px;line-height:12px;font-weight:500;color:var(--ink-muted)}
 .tab svg.i{width:25px;height:25px}
 .tab[aria-current="page"]{color:var(--ai)}
 .tab .kanji{font-size:21px;line-height:25px;font-weight:700;height:25px}
-.fab{position:fixed;z-index:14;right:max(20px,env(safe-area-inset-right,0px));bottom:calc(var(--tabh) + env(safe-area-inset-bottom,0px) + 16px);
+.fab{position:fixed;z-index:14;right:max(20px,env(safe-area-inset-right,0px));bottom:calc(var(--tabh) + var(--tabpad) + 16px);
   width:58px;height:58px;border-radius:50%;background:var(--ai);color:var(--on-ai);display:grid;place-items:center;box-shadow:0 6px 18px rgba(20,30,60,.28)}
 .fab svg.i{width:28px;height:28px;stroke-width:2.4}
 
@@ -154,6 +155,7 @@ h1.title.sm{font-size:28px;line-height:34px;margin:0}
 .cat-row .pct{flex:none;width:42px;text-align:right;font-size:14px;color:var(--ink-muted)}
 .cat-sub{padding:0 16px 10px 64px;display:flex;flex-direction:column;gap:4px;font-size:14px}
 .cat-sub div{display:flex;justify-content:space-between;gap:8px;color:var(--ink-muted)}
+.ov-grid{display:flex;flex-direction:column;gap:16px}
 .week-card{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:center;width:100%;text-align:left}
 .week-card .ring{width:64px;height:64px}
 .ring .track{fill:none;stroke:var(--surface-sunken);stroke-width:7}
@@ -295,7 +297,7 @@ h1.title.sm{font-size:28px;line-height:34px;margin:0}
 .keypad button.flat{background:transparent;font-size:28px}
 .keypad button.flat svg.i{width:28px;height:28px}
 .keypad button:active{background:var(--line)}
-.toast{position:fixed;left:50%;transform:translate(-50%,20px);bottom:calc(var(--tabh) + env(safe-area-inset-bottom,0px) + 86px);z-index:40;background:var(--ink);color:var(--surface);
+.toast{position:fixed;left:50%;transform:translate(-50%,20px);bottom:calc(var(--tabh) + var(--tabpad) + 86px);z-index:40;background:var(--ink);color:var(--surface);
   border-radius:14px;padding:10px 14px;font-size:14px;line-height:19px;max-width:min(92vw,420px);opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;text-align:center}
 .toast.show{opacity:1;transform:translate(-50%,0)}
 
@@ -320,6 +322,7 @@ h1.title.sm{font-size:28px;line-height:34px;margin:0}
 @media (min-width:900px){
   body{padding-bottom:40px;padding-left:220px}
   body::before{left:220px}
+  .tabbar::after{display:none}
   .tabbar{top:0;bottom:0;right:auto;width:220px;border-top:0;border-right:1px solid var(--line);padding:calc(env(safe-area-inset-top,0px) + 24px) 12px 24px}
   .tabbar-in{display:flex;flex-direction:column;height:auto;gap:4px}
   .tab{flex-direction:row;justify-content:flex-start;gap:12px;font-size:15px;line-height:20px;padding:9px 12px;border-radius:10px}
