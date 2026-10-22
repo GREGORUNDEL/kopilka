@@ -38,7 +38,9 @@
   --scrim:rgba(0,0,0,.6); --nav:rgba(0,0,0,.84); --bar:#161618; color-scheme:dark }}
 
 *{box-sizing:border-box}
-html{-webkit-text-size-adjust:100%;background:var(--surface);overscroll-behavior:none}
+html{-webkit-text-size-adjust:100%;background:var(--surface);overscroll-behavior:none;min-height:100%}
+/* Every page at least one screen tall: on iOS home-screen apps a short page makes the viewport shrink and the tab bar float */
+body{min-height:calc(100vh + 1px);min-height:calc(100lvh + 1px)}
 [hidden]{display:none!important}
 /* Home-screen app on iOS: the system draws its own fade under the status bar (WebKit bug 301994 can also report a 0 inset), so keep content clear of it */
 @media (display-mode: standalone){:root{--safe-top:max(env(safe-area-inset-top,0px),59px);--top-gap:18px}}
