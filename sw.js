@@ -1,6 +1,6 @@
 // Копилка — service worker: the app opens offline from cache and refreshes itself in the background.
-const CACHE = "kopilka-shell-v1";
-const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icon-180.png", "./icon-192.png", "./icon-512.png"];
+const CACHE = "kopilka-shell-v2";
+const SHELL = ["./", "./index.html", "./app.js", "./icons.js", "./manifest.webmanifest", "./icon-180.png", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)));
@@ -15,10 +15,11 @@ self.addEventListener("activate", (e) => {
   );
 });
 
-// Stale-while-revalidate for the app's own files; GitHub API and the rate API pass through untouched.
+// Stale-while-revalidate for the app's own files; GitHub API and rate APIs pass through untouched.
 self.addEventListener("fetch", (e) => {
   const url = new URL(e.request.url);
   if (e.request.method !== "GET" || url.origin !== self.location.origin) return;
+  if (url.pathname.includes("/old/")) return;
   e.respondWith(
     caches.open(CACHE).then(async (cache) => {
       const key = e.request.mode === "navigate" ? "./" : e.request;
