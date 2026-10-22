@@ -1,0 +1,773 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Копилка</title>
+<meta name="description" content="Накопления на Японию: недели, прогноз по SNG и KAI, курс иены.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Копилка">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#F2F2F7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<style>
+/* Layout: phone-first iOS column of grouped cards; from 900px two columns (numbers left, charts right). Tokens from the «Копилка iOS» design system. */
+:root{
+  --surface:#F2F2F7; --surface-raised:#FFFFFF; --surface-sunken:#E6E6EB; --line:#D1D1D6;
+  --ink:#1C1C1E; --ink-muted:#6C6C72;
+  --ai:#2F4A8A; --ai-soft:#E3E8F5; --on-ai:#FFFFFF;
+  --shu:#C8442E; --shu-soft:#FBE7E3; --matsu:#2E7D4F; --matsu-soft:#E2F2E8; --kin:#B5761A;
+  --series-1:#3D5DB5; --series-2:#B5761A;
+  --scrim:rgba(0,0,0,.32); --nav:rgba(242,242,247,.86);
+  --font-sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","Hiragino Sans","Noto Sans JP",system-ui,sans-serif;
+  --font-rounded:ui-rounded,"SF Pro Rounded",-apple-system,"Hiragino Maru Gothic ProN",system-ui,sans-serif;
+  --r-sm:8px; --r-md:14px; --r-lg:22px;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root{
+  --surface:#000000; --surface-raised:#1C1C1E; --surface-sunken:#2C2C2E; --line:#38383A;
+  --ink:#F2F2F7; --ink-muted:#98989F;
+  --ai:#8FA8F0; --ai-soft:#1A2340; --on-ai:#0B1020;
+  --shu:#FF7A5C; --shu-soft:#3A1710; --matsu:#5FCB8A; --matsu-soft:#0F2A1A; --kin:#D9A24A;
+  --series-1:#6D8CF0; --series-2:#B98226;
+  --scrim:rgba(0,0,0,.6); --nav:rgba(0,0,0,.82); color-scheme:dark }}
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);background:var(--surface)}
+[hidden]{display:none!important}
+body{margin:0;background:var(--surface);color:var(--ink);font-family:var(--font-sans);font-size:17px;line-height:22px;-webkit-font-smoothing:antialiased;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 40px}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--nav)}
+.num{font-variant-numeric:tabular-nums}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+button:focus-visible,input:focus-visible{outline:2px solid var(--ai);outline-offset:2px}
+
+.wrap{max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:24px}
+.cols{display:contents}
+.col{display:contents}
+
+/* nav */
+.nav{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--nav);-webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px);
+  margin:0 calc(-1 * max(16px,env(safe-area-inset-right,0px))) 0 calc(-1 * max(16px,env(safe-area-inset-left,0px)));
+  padding:10px max(16px,env(safe-area-inset-right,0px)) 10px max(16px,env(safe-area-inset-left,0px))}
+.nav-in{max-width:560px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.icon-btn{flex:none;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;color:var(--ai);background:var(--surface-raised)}
+.icon-btn svg{width:20px;height:20px}
+.icon-btn.add{background:var(--ai);color:var(--on-ai)}
+.sync{display:flex;align-items:center;gap:6px;font-size:13px;line-height:18px;color:var(--ink-muted);padding:6px 10px;border-radius:999px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sync i{flex:none;width:7px;height:7px;border-radius:50%;background:var(--ink-muted)}
+.sync[data-s="ok"] i{background:var(--matsu)}
+.sync[data-s="syncing"] i{background:var(--ai);animation:pulse 1s infinite}
+.sync[data-s="offline"] i,.sync[data-s="local"] i{background:var(--kin)}
+.sync[data-s="auth"] i,.sync[data-s="norepo"] i,.sync[data-s="error"] i{background:var(--shu)}
+.sync[data-s="auth"],.sync[data-s="norepo"]{color:var(--shu)}
+@keyframes pulse{50%{opacity:.3}}
+
+.head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;padding-top:4px}
+.head h1{margin:0;font-size:34px;line-height:41px;font-weight:700;letter-spacing:-.01em}
+.hanko{flex:none;width:44px;height:44px;border-radius:8px;border:2px solid var(--shu);color:var(--shu);display:grid;place-items:center;
+  font-size:24px;line-height:1;font-weight:700;transform:rotate(-4deg);margin-bottom:2px}
+.sub{color:var(--ink-muted);font-size:15px;line-height:20px;margin-top:2px}
+
+/* cards */
+.card{background:var(--surface-raised);border-radius:var(--r-md);padding:16px}
+.section-label{font-size:13px;line-height:18px;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.04em;margin:0 0 6px 16px}
+.hero .big{font-family:var(--font-rounded);font-size:44px;line-height:48px;font-weight:700;letter-spacing:-.01em}
+.hero .big small{font-size:26px;font-weight:600;color:var(--ink-muted);margin-left:4px}
+.hero-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
+.stat{min-width:0}
+.stat .v{font-family:var(--font-rounded);font-size:22px;line-height:26px;font-weight:700}
+.stat .k{font-size:12px;line-height:16px;color:var(--ink-muted);margin-top:2px}
+.stat .jp{color:var(--shu)}
+
+.seg{display:grid;grid-template-columns:1fr 1fr;background:var(--surface-sunken);border-radius:9px;padding:2px;gap:2px}
+.seg button{border-radius:7px;padding:7px 6px;font-size:13px;line-height:17px;font-weight:600;color:var(--ink)}
+.seg button[aria-pressed="true"]{background:var(--surface-raised);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.seg button span{display:block;font-weight:400;color:var(--ink-muted);font-size:12px}
+
+.schools{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.school{padding:14px 14px 10px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.school-top{display:flex;align-items:center;gap:10px}
+.ring{flex:none;width:52px;height:52px}
+.ring .track{fill:none;stroke:var(--surface-sunken);stroke-width:6}
+.ring .fill{fill:none;stroke-width:6;stroke-linecap:round;transform:rotate(-90deg);transform-origin:50% 50%;transition:stroke-dashoffset .6s ease}
+.ring text{font-family:var(--font-rounded);font-size:13px;font-weight:700;fill:var(--ink);text-anchor:middle;dominant-baseline:central}
+.school h3{margin:0;font-size:17px;line-height:22px;font-weight:700}
+.school h3 .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:1px}
+.school .goal{font-size:13px;line-height:18px;color:var(--ink-muted)}
+.rows{display:flex;flex-direction:column}
+.r{display:flex;justify-content:space-between;align-items:baseline;gap:6px;padding:7px 0;border-top:1px solid var(--line);font-size:15px;line-height:20px}
+.r .k{color:var(--ink-muted);font-size:13px}
+.r .v{font-weight:600;text-align:right}
+.chip{display:inline-block;border-radius:6px;padding:1px 6px;font-weight:700;font-family:var(--font-rounded)}
+.chip.pos{background:var(--matsu-soft);color:var(--matsu)}
+.chip.neg{background:var(--shu-soft);color:var(--shu)}
+.pos-t{color:var(--matsu)} .neg-t{color:var(--shu)}
+
+.chart-card h2{margin:0;font-size:17px;line-height:22px;font-weight:700}
+.chart-card .cap{font-size:13px;line-height:18px;color:var(--ink-muted);margin-top:2px}
+.chart{position:relative;margin-top:12px;touch-action:pan-y}
+.chart svg{display:block;width:100%;height:auto;overflow:visible}
+.chart .grid{stroke:var(--line);stroke-width:1}
+.chart .axis{fill:var(--ink-muted);font-size:11px;font-family:var(--font-sans)}
+.chart .lbl{font-size:11px;font-weight:600;font-family:var(--font-sans)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px;font-size:12px;line-height:16px;color:var(--ink-muted)}
+.legend i{display:inline-block;width:14px;height:3px;border-radius:2px;margin-right:5px;vertical-align:3px}
+.legend i.ghost{width:12px;height:9px;border:1.5px dashed var(--ai);background:none;border-radius:2px;vertical-align:0}
+.legend i.dash{background:repeating-linear-gradient(90deg,var(--ink) 0 4px,transparent 4px 7px)}
+.tip{position:absolute;pointer-events:none;background:var(--surface-raised);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:6px 9px;font-size:12px;line-height:16px;
+  box-shadow:0 4px 14px rgba(0,0,0,.14);white-space:nowrap;transform:translate(-50%,-100%);z-index:2}
+.tip b{font-family:var(--font-rounded);font-size:14px}
+.note{font-size:13px;line-height:18px;color:var(--ink-muted);margin-top:8px}
+
+.changes .r{border-top:0;border-bottom:1px solid var(--line);padding:10px 0}
+.changes .r:last-child{border-bottom:0}
+
+.list{background:var(--surface-raised);border-radius:var(--r-md);overflow:hidden}
+.list button.row{display:flex;width:100%;align-items:center;justify-content:space-between;gap:10px;padding:12px 16px;text-align:left;position:relative}
+.list button.row+button.row::before{content:"";position:absolute;left:16px;right:0;top:0;border-top:1px solid var(--line)}
+.row .d{font-size:15px;min-width:0}
+.row .d small{display:block;color:var(--ink-muted);font-size:12px;line-height:16px}
+.row .amt{flex:none;font-family:var(--font-rounded);font-weight:700;font-size:17px;display:flex;align-items:center;gap:8px}
+.row .amt svg{width:8px;height:13px;color:var(--line)}
+.more{display:block;width:100%;padding:12px 16px;color:var(--ai);text-align:left;font-size:15px;border-top:1px solid var(--line)}
+
+.empty{padding:28px 16px;text-align:center;color:var(--ink-muted);font-size:15px}
+.empty b{display:block;color:var(--ink);font-size:17px;margin-bottom:4px}
+.banner{background:var(--shu-soft);color:var(--ink);border-radius:var(--r-sm);padding:10px 12px;font-size:13px;line-height:18px}
+.onboard{display:flex;flex-direction:column;gap:12px}
+.onboard p{margin:0;font-size:15px;line-height:20px;color:var(--ink-muted)}
+.onboard h2{margin:0;font-size:20px;line-height:25px}
+.btn{display:block;width:100%;border-radius:12px;padding:13px 16px;font-size:17px;font-weight:600;text-align:center;background:var(--ai);color:var(--on-ai)}
+.btn.plain{background:var(--surface-raised);color:var(--ai);font-weight:400}
+.foot{text-align:center;font-size:12px;line-height:16px;color:var(--ink-muted)}
+
+/* order on phones */
+#hero{order:1}#seg{order:2}#schools{order:3}#cardPath{order:4}#cardBars{order:5}#cardRate{order:6}#secChanges{order:7}#secWeeks{order:8}#foot{order:9}
+.stat .jp{white-space:nowrap}
+
+/* sheets */
+.scrim{position:fixed;inset:0;background:var(--scrim);z-index:20;opacity:0;transition:opacity .2s}
+.scrim.open{opacity:1}
+.sheet{position:fixed;left:50%;bottom:0;width:min(560px,100%);z-index:21;background:var(--surface);border-radius:var(--r-lg) var(--r-lg) 0 0;
+  max-height:90vh;overflow:auto;transform:translate(-50%,100%);transition:transform .28s cubic-bezier(.2,.8,.2,1);
+  padding:8px max(16px,env(safe-area-inset-right,0px)) calc(20px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.sheet.open{transform:translate(-50%,0)}
+.sheet-in{display:flex;flex-direction:column;gap:16px}
+.grabber{width:36px;height:5px;border-radius:3px;background:var(--line);margin:0 auto}
+.sheet-head{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.sheet-head h2{margin:0;font-size:17px;font-weight:700}
+.sheet-head button{color:var(--ai);font-size:17px;padding:4px 0}
+.sheet-head .done{font-weight:600}
+.form{background:var(--surface-raised);border-radius:var(--r-md);overflow:hidden}
+.field{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 16px;position:relative;min-height:46px}
+.field+.field::before{content:"";position:absolute;left:16px;right:0;top:0;border-top:1px solid var(--line)}
+.field label{font-size:15px;flex:1;min-width:0}
+.field label small{display:block;color:var(--ink-muted);font-size:12px;line-height:15px}
+.field input{font:inherit;font-size:17px;text-align:right;border:0;background:transparent;color:var(--ink);width:9.5em;min-width:0;padding:4px 0;font-variant-numeric:tabular-nums}
+.field input[type=date]{width:auto}
+.field input#wNote{width:8em}
+.field.stack{flex-direction:column;align-items:stretch;gap:6px}
+.field.stack input{width:100%;text-align:left;font-size:15px;font-family:ui-monospace,"SF Mono",Menlo,monospace}
+.hint{font-size:13px;line-height:18px;color:var(--ink-muted);margin:-8px 16px 0}
+.danger{background:var(--surface-raised);border-radius:var(--r-md);padding:13px 16px;color:var(--shu);text-align:center;width:100%;font-size:17px}
+.danger.confirm{background:var(--shu);color:#fff}
+.linkrow{background:var(--surface-raised);border-radius:var(--r-md);padding:13px 16px;color:var(--ai);text-align:center;width:100%;font-size:17px}
+.err{color:var(--shu);font-size:13px;margin:-8px 16px 0}
+.ok-msg{color:var(--matsu);font-size:13px;margin:-8px 16px 0}
+
+@media (prefers-reduced-motion:reduce){.sheet,.scrim,.ring .fill{transition:none}.sync[data-s="syncing"] i{animation:none}}
+@media (max-width:370px){.schools{grid-template-columns:1fr}}
+
+/* laptop */
+@media (min-width:900px){
+  .wrap,.nav-in{max-width:1080px}
+  .cols{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:24px;align-items:start}
+  .col{display:flex;flex-direction:column;gap:24px}
+  .head h1{font-size:40px;line-height:46px}
+  .sheet{bottom:auto;top:50%;border-radius:var(--r-lg);transform:translate(-50%,-40%);opacity:0;pointer-events:none;transition:transform .22s,opacity .22s;max-height:86vh;padding-bottom:20px}
+  .sheet.open{transform:translate(-50%,-50%);opacity:1;pointer-events:auto}
+  .grabber{display:none}
+}
+</style>
+</head>
+<body>
+
+<div class="nav"><div class="nav-in">
+  <button class="icon-btn" id="btnSettings" aria-label="Настройки">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>
+  </button>
+  <button class="sync" id="sync" data-s="local"><i></i><span id="syncT">только на этом устройстве</span></button>
+  <button class="icon-btn add" id="btnAdd" aria-label="Добавить неделю" title="Добавить неделю (N)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+  </button>
+</div></div>
+
+<main class="wrap">
+  <header class="head">
+    <div>
+      <h1>Копилка</h1>
+      <div class="sub" id="weekLabel">Загружаю…</div>
+    </div>
+    <div class="hanko" aria-hidden="true">貯</div>
+  </header>
+
+  <div id="banner" class="banner" hidden></div>
+
+  <section class="card onboard" id="onboard" hidden>
+    <h2>Подключи хранилище</h2>
+    <p>Недели будут храниться на этом устройстве и в твоём приватном репозитории <b>kopilka-data</b> на GitHub. Без сети всё работает, синхронизация пройдёт сама, когда появится интернет.</p>
+    <button class="btn" id="obConnect">Вставить токен</button>
+  </section>
+
+  <div class="cols">
+    <div class="col">
+      <section class="card hero" id="hero" aria-label="Итог">
+        <div class="sub" style="margin:0 0 2px">Накоплено</div>
+        <div class="big num" id="balance">—</div>
+        <div class="hero-row">
+          <div class="stat"><div class="v num" id="pace">—</div><div class="k" id="paceK">темп, €/нед</div></div>
+          <div class="stat"><div class="v num" id="left">—</div><div class="k">недель до 12.03.28 · <span class="jp">あと</span></div></div>
+          <div class="stat"><div class="v num" id="rate">—</div><div class="k" id="rateK">¥ за 1 €</div></div>
+        </div>
+      </section>
+
+      <div class="seg" id="seg" role="group" aria-label="Бюджет жизни">
+        <button id="segMine" aria-pressed="true">Мой бюджет<span id="segMineV">¥210 000/мес</span></button>
+        <button id="segComfort" aria-pressed="false">Комфорт<span id="segComfortV">¥180 000/мес</span></button>
+      </div>
+
+      <section class="schools" id="schools"></section>
+
+      <section id="secChanges">
+        <p class="section-label">Что изменилось за неделю</p>
+        <div class="card changes" id="changes"><div class="empty">Появится после второй недели.</div></div>
+      </section>
+
+      <section id="secWeeks">
+        <p class="section-label">Недели</p>
+        <div class="list" id="weekList"><div class="empty"><b>Пока нет недель</b>Нажми «+» вверху, чтобы добавить первую.</div></div>
+      </section>
+    </div>
+
+    <div class="col">
+      <section class="card chart-card" id="cardPath">
+        <h2>Путь к цели</h2>
+        <div class="cap" id="pathCap">Факт и прогноз при текущем темпе</div>
+        <div class="chart" id="pathChart"></div>
+        <div class="legend" id="pathLegend"></div>
+      </section>
+
+      <section class="card chart-card" id="cardBars">
+        <h2>Недели</h2>
+        <div class="cap" id="barsCap">Сколько отложено и сколько нужно</div>
+        <div class="chart" id="barsChart"></div>
+        <div class="legend" id="barsLegend"></div>
+      </section>
+
+      <section class="card chart-card" id="cardRate">
+        <h2>Курс иены</h2>
+        <div class="cap" id="rateCap">¥ за 1 €, последние 90 дней</div>
+        <div class="chart" id="rateChart"></div>
+        <div class="note">Выше курс — дешевле цель. Каждые 5 ¥ меняют цель KAI примерно на <span id="per5">—</span> €.</div>
+      </section>
+    </div>
+  </div>
+
+  <p class="foot" id="foot">Курс: ЕЦБ, обновляется, когда есть интернет.</p>
+</main>
+
+<div class="scrim" id="scrim" hidden></div>
+
+<div class="sheet" id="sheetWeek" role="dialog" aria-modal="true" aria-labelledby="wTitle" hidden>
+  <div class="sheet-in">
+    <div class="grabber"></div>
+    <div class="sheet-head"><button data-close>Отмена</button><h2 id="wTitle">Неделя</h2><button class="done" id="wSave">Сохранить</button></div>
+    <div class="form">
+      <div class="field"><label for="wMonday">Понедельник<small id="wRange">неделя пн–вс</small></label><input type="date" id="wMonday"></div>
+      <div class="field"><label for="wSaved">Отложено за неделю<small>в евро, может быть минус</small></label><input id="wSaved" inputmode="decimal" placeholder="0" autocomplete="off"></div>
+      <div class="field"><label for="wBalance">Итоговый остаток<small>необязательно</small></label><input id="wBalance" inputmode="decimal" placeholder="—" autocomplete="off"></div>
+    </div>
+    <p class="hint">Если остаток не указан, он считается от соседних недель.</p>
+    <div class="form">
+      <div class="field"><label for="wOneoff">Разовые траты<small>поездка, подарки, техника</small></label><input id="wOneoff" inputmode="decimal" placeholder="0" autocomplete="off"></div>
+      <div class="field"><label for="wIncome">Разовый доход<small>отпускные, возврат налога</small></label><input id="wIncome" inputmode="decimal" placeholder="0" autocomplete="off"></div>
+      <div class="field"><label for="wNote">За что<small>необязательно</small></label><input id="wNote" maxlength="40" placeholder="Чехия" autocomplete="off"></div>
+    </div>
+    <p class="hint">«Отложено» вводи как есть, со всеми тратами. Разовые только убираются из темпа: остаток и прогноз их уже учитывают.</p>
+    <p class="err" id="wErr" hidden></p>
+    <button class="danger" id="wDelete" hidden>Удалить неделю</button>
+  </div>
+</div>
+
+<div class="sheet" id="sheetSet" role="dialog" aria-modal="true" aria-labelledby="sTitle" hidden>
+  <div class="sheet-in">
+    <div class="grabber"></div>
+    <div class="sheet-head"><button data-close>Отмена</button><h2 id="sTitle">Настройки</h2><button class="done" id="sSave">Сохранить</button></div>
+    <p class="section-label" style="margin-bottom:-10px">Курс</p>
+    <div class="form">
+      <div class="field"><label for="sRate">Ручной курс<small id="sRateNow">пусто — брать автоматический</small></label><input id="sRate" inputmode="decimal" placeholder="авто" autocomplete="off"></div>
+    </div>
+    <p class="section-label" style="margin-bottom:-10px">Цель</p>
+    <div class="form">
+      <div class="field"><label for="sMine">Мой бюджет<small>¥ в месяц</small></label><input id="sMine" inputmode="numeric"></div>
+      <div class="field"><label for="sComfort">Комфорт<small>¥ в месяц</small></label><input id="sComfort" inputmode="numeric"></div>
+      <div class="field"><label for="sMonths">Месяцев жизни</label><input id="sMonths" inputmode="numeric"></div>
+      <div class="field"><label for="sSNG">Школа SNG<small>¥ за весь курс</small></label><input id="sSNG" inputmode="numeric"></div>
+      <div class="field"><label for="sKAI">Школа KAI<small>¥ за весь курс</small></label><input id="sKAI" inputmode="numeric"></div>
+      <div class="field"><label for="sExtra">Доп. расходы<small>€, билет, телефон, рисоварка</small></label><input id="sExtra" inputmode="numeric"></div>
+    </div>
+    <p class="section-label" style="margin-bottom:-10px">Срок и выплаты</p>
+    <div class="form">
+      <div class="field"><label for="sDeadline">Последний день</label><input type="date" id="sDeadline"></div>
+      <div class="field"><label for="sHoliday">Отпускные<small>€, лето 2027 + выплата при увольнении</small></label><input id="sHoliday" inputmode="numeric"></div>
+      <div class="field"><label for="sWindow">Окно темпа<small>недель для среднего</small></label><input id="sWindow" inputmode="numeric"></div>
+    </div>
+    <p class="err" id="sErr" hidden></p>
+    <button class="linkrow" id="sOpenSync">Синхронизация и данные</button>
+  </div>
+</div>
+
+<div class="sheet" id="sheetSync" role="dialog" aria-modal="true" aria-labelledby="yTitle" hidden>
+  <div class="sheet-in">
+    <div class="grabber"></div>
+    <div class="sheet-head"><button data-close>Закрыть</button><h2 id="yTitle">Синхронизация</h2><button class="done" id="yConnect">Подключить</button></div>
+    <div class="form">
+      <div class="field stack"><label for="yToken">Токен GitHub<small>Fine-grained, доступ Contents к kopilka-data</small></label><input id="yToken" type="password" placeholder="github_pat_…" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
+      <div class="field stack"><label for="yRepo">Репозиторий с данными</label><input id="yRepo" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
+    </div>
+    <p class="hint" id="yState">Не подключено. Данные хранятся только на этом устройстве.</p>
+    <p class="err" id="yErr" hidden></p>
+    <p class="ok-msg" id="yOk" hidden></p>
+    <button class="linkrow" id="ySyncNow">Синхронизировать сейчас</button>
+    <button class="linkrow" id="yCopy">Скопировать все данные (JSON)</button>
+    <button class="danger" id="yForget" hidden>Удалить токен с этого устройства</button>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+const DAY=864e5;
+const DEFAULTS={deadline:"2028-03-12",months:24,mine:210000,comfort:180000,SNG:1840000,KAI:2270000,extraEur:3000,holidayEur:2600,window:13,extraPayouts:1,manualRate:null};
+const KEY="kopilka.v1",AKEY="kopilka.auth",DEFAULT_REPO="GREGORUNDEL/kopilka-data",DATA_PATH="kopilka.json";
+
+/* ---------- local store ---------- */
+function blank(){return{weeks:{},config:null,rates:{},ratesFetchedAt:0,lastSync:0,dirty:false}}
+function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&typeof s.weeks==="object")return Object.assign(blank(),s)}catch(e){}return blank()}
+let L=load();
+function persist(){try{localStorage.setItem(KEY,JSON.stringify(L))}catch(e){showBanner("Не удалось сохранить на устройстве: память браузера недоступна.")}}
+function getAuth(){try{const a=JSON.parse(localStorage.getItem(AKEY));if(a&&a.token)return a}catch(e){}return null}
+function setAuth(a){try{a?localStorage.setItem(AKEY,JSON.stringify(a)):localStorage.removeItem(AKEY)}catch(e){}}
+const nowIso=()=>new Date().toISOString();
+const cfg=()=>({...DEFAULTS,...(L.config||{})});
+const liveWeeks=()=>Object.values(L.weeks).filter(w=>w&&!w.deleted&&typeof w.monday==="string"&&typeof w.saved==="number");
+
+const UI={budget:"mine",showAll:false};
+try{if(localStorage.getItem("kopilka.budget")==="comfort")UI.budget="comfort"}catch(e){}
+
+const $=id=>document.getElementById(id);
+const nf0=new Intl.NumberFormat("ru-RU",{maximumFractionDigits:0});
+const nf2=new Intl.NumberFormat("ru-RU",{minimumFractionDigits:2,maximumFractionDigits:2});
+const nf1=new Intl.NumberFormat("ru-RU",{minimumFractionDigits:1,maximumFractionDigits:1});
+const eur=v=>nf0.format(Math.round(v));
+const signed=v=>(v>=0?"+":"−")+nf0.format(Math.abs(Math.round(v)));
+const parseD=s=>{const[y,m,d]=s.split("-").map(Number);return Date.UTC(y,m-1,d)};
+const iso=t=>new Date(t).toISOString().slice(0,10);
+const dm=t=>{const d=new Date(t);return String(d.getUTCDate()).padStart(2,"0")+"."+String(d.getUTCMonth()+1).padStart(2,"0")};
+const dmy=t=>dm(t)+"."+String(new Date(t).getUTCFullYear()).slice(2);
+const mondayOf=t=>{const wd=(new Date(t).getUTCDay()+6)%7;return t-wd*DAY};
+const todayUTC=()=>{const n=new Date();return Date.UTC(n.getFullYear(),n.getMonth(),n.getDate())};
+const num=s=>{if(s==null)return NaN;s=String(s).replace(/\s| /g,"").replace(",",".").replace("−","-");return s===""?NaN:Number(s)};
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const hhmm=t=>{const d=new Date(t);return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0")};
+function showBanner(t){const b=$("banner");b.textContent=t;b.hidden=false}
+
+/* ---------- model ---------- */
+const reg=w=>w.saved+(w.oneoff||0)-(w.income||0);
+const hasX=w=>(w.oneoff||0)>0||(w.income||0)>0;
+const sortedWeeks=ws=>ws.slice().sort((a,b)=>a.monday<b.monday?-1:1);
+function withBalances(ws){
+  const out=ws.map(w=>({...w}));
+  for(let i=out.length-1;i>=0;i--){if(typeof out[i].balance==="number")continue;if(i<out.length-1&&typeof out[i+1].balance==="number")out[i].balance=out[i+1].balance-out[i+1].saved}
+  for(let i=0;i<out.length;i++){if(typeof out[i].balance!=="number"&&i>0&&typeof out[i-1].balance==="number")out[i].balance=out[i-1].balance+out[i].saved}
+  return out;
+}
+function rateAt(dateIso){const keys=Object.keys(L.rates).sort();let best=null;for(const k of keys){if(k<=dateIso)best=k;else break}if(!best&&keys.length)best=keys[0];return best?{date:best,rate:L.rates[best]}:null}
+function currentRate(){const c=cfg();if(typeof c.manualRate==="number"&&c.manualRate>0)return{rate:c.manualRate,date:null,manual:true};const r=rateAt(iso(todayUTC()));return r?{rate:r.rate,date:r.date,manual:false}:null}
+const goal=(budgetYen,schoolYen,rate,c)=>(budgetYen*c.months+schoolYen)/rate+c.extraEur;
+function metrics(ws,rate,c){
+  if(!ws.length||!rate)return null;
+  const last=ws[ws.length-1];
+  const lastSun=parseD(last.monday)+6*DAY;
+  const left=Math.max(0,Math.round((parseD(c.deadline)-lastSun)/(7*DAY)))+c.extraPayouts;
+  const win=Math.min(c.window,ws.length),recent=ws.slice(-win);
+  const pace=recent.reduce((a,w)=>a+reg(w),0)/win;
+  const all=ws.reduce((a,w)=>a+reg(w),0)/ws.length;
+  const netPace=recent.reduce((a,w)=>a+w.saved,0)/win;
+  const oneoffs=ws.reduce((a,w)=>a+(w.oneoff||0),0);
+  const bal=typeof last.balance==="number"?last.balance:0;
+  const out={bal,left,pace,all,netPace,oneoffs,win,n:ws.length,lastMonday:last.monday,budgets:{}};
+  for(const b of ["mine","comfort"]){out.budgets[b]={};for(const s of ["SNG","KAI"]){const g=goal(c[b],c[s],rate,c);
+    out.budgets[b][s]={goal:g,progress:bal/g,need:left?(g-bal)/left:0,fc:bal+pace*left-g,fcH:bal+pace*left+c.holidayEur-g}}}
+  return out;
+}
+
+/* ---------- render ---------- */
+function render(){
+  const c=cfg();
+  $("segMineV").textContent="¥"+nf0.format(c.mine)+"/мес";
+  $("segComfortV").textContent="¥"+nf0.format(c.comfort)+"/мес";
+  $("segMine").setAttribute("aria-pressed",UI.budget==="mine");
+  $("segComfort").setAttribute("aria-pressed",UI.budget==="comfort");
+  const ws=withBalances(sortedWeeks(liveWeeks()));
+  const cr=currentRate();
+  $("onboard").hidden=!!getAuth()||ws.length>0;
+
+  const banner=$("banner");banner.hidden=true;
+  if(cr){$("rate").textContent=nf1.format(cr.rate);$("rateK").textContent=cr.manual?"¥ за 1 € · вручную":"¥ за 1 € · "+dm(parseD(cr.date))}
+  if(ws.length&&!cr)showBanner("Нет курса иены. Подключись к интернету или укажи курс вручную в настройках.");
+  else if(cr&&!cr.manual&&todayUTC()-parseD(cr.date)>6*DAY)showBanner("Курс не обновлялся с "+dmy(parseD(cr.date))+". Цифры посчитаны по нему.");
+
+  if(!ws.length){$("weekLabel").textContent="Добавь первую неделю";$("balance").textContent="—";$("schools").innerHTML="";renderRate();renderList(ws);return}
+  const m=metrics(ws,cr&&cr.rate,c);
+  const lm=parseD(ws[ws.length-1].monday);
+  $("weekLabel").textContent="Неделя "+dm(lm)+"–"+dmy(lm+6*DAY);
+  const last=ws[ws.length-1];
+  $("balance").innerHTML=(typeof last.balance==="number"?eur(last.balance):"—")+"<small>€</small>";
+  if(!m){renderRate();renderList(ws);return}
+  $("pace").textContent=eur(m.pace);
+  $("paceK").innerHTML=(m.n>=c.window?"темп "+m.win+" нед · всё время "+eur(m.all):"темп, €/нед · "+m.n+" нед")+(Math.abs(m.netPace-m.pace)>=1?"<br>с разовыми "+eur(m.netPace):"");
+  $("left").textContent=m.left;
+
+  const b=m.budgets[UI.budget];
+  $("schools").innerHTML=["SNG","KAI"].map((s,i)=>{
+    const x=b[s],col=i?"var(--series-2)":"var(--series-1)",C=2*Math.PI*22,p=Math.max(0,Math.min(1,x.progress));
+    return `<article class="card school"><div class="school-top">
+        <svg class="ring" viewBox="0 0 52 52" role="img" aria-label="${s}: ${nf1.format(x.progress*100)}%"><circle class="track" cx="26" cy="26" r="22"/>
+          <circle class="fill" cx="26" cy="26" r="22" stroke="${col}" stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${(C*(1-p)).toFixed(1)}"/>
+          <text x="26" y="27">${nf0.format(x.progress*100)}%</text></svg>
+        <div style="min-width:0"><h3><span class="dot" style="background:${col}"></span>${s}</h3><div class="goal num">цель ${eur(x.goal)} €</div></div></div>
+      <div class="rows">
+        <div class="r"><span class="k">Нужно/нед</span><span class="v num">${eur(x.need)}</span></div>
+        <div class="r"><span class="k">Прогноз</span><span class="chip num ${x.fc>=0?"pos":"neg"}">${signed(x.fc)}</span></div>
+        <div class="r"><span class="k">+ отпускные</span><span class="v num ${x.fcH>=0?"pos-t":"neg-t"}">${signed(x.fcH)}</span></div>
+      </div></article>`}).join("");
+  $("per5").textContent=eur(Math.abs(goal(c[UI.budget],c.KAI,cr.rate-5,c)-goal(c[UI.budget],c.KAI,cr.rate,c)));
+  $("foot").textContent="Прогноз = накоплено + темп × "+m.left+" нед ("+(m.left-c.extraPayouts)+" + "+c.extraPayouts+" выплата) · отпускные "+eur(c.holidayEur)+" € · "+(cr.manual?"курс введён вручную":"курс ЕЦБ, обновляется, когда есть интернет");
+  renderPath(ws,m);renderBars(ws,m);renderRate();renderChanges(ws,m,cr);renderList(ws);
+}
+
+const svgEl=(w,h,inner)=>`<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" style="height:auto">${inner}</svg>`;
+function niceTicks(min,max,count){const span=max-min||1,step0=span/count,mag=Math.pow(10,Math.floor(Math.log10(step0)));const step=[1,2,2.5,5,10].map(f=>f*mag).find(s=>s>=step0)||10*mag;const t=[];for(let v=Math.ceil(min/step)*step;v<=max+1e-9;v+=step)t.push(v);return t}
+const kfmt=v=>Math.abs(v)>=1000?nf0.format(v/1000)+"к":nf0.format(v);
+
+function attachTip(box,points,fmt){
+  let tip=box.querySelector(".tip");if(!tip){tip=document.createElement("div");tip.className="tip";tip.hidden=true;box.appendChild(tip)}
+  const svg=box.querySelector("svg"),cross=svg.querySelector(".cross"),mark=svg.querySelector(".mark");
+  function at(ev){const r=svg.getBoundingClientRect(),vb=svg.viewBox.baseVal,sx=r.width/vb.width,x=(ev.clientX-r.left)/sx;let best=null,bd=1e9;
+    for(const p of points){const d=Math.abs(p.x-x);if(d<bd){bd=d;best=p}}
+    if(!best||bd>40){hide();return}
+    tip.hidden=false;tip.innerHTML=fmt(best);let left=best.x*sx;const half=tip.offsetWidth/2;left=Math.max(half,Math.min(r.width-half,left));
+    tip.style.left=left+"px";tip.style.top=(best.y*sx-10)+"px";
+    if(cross){cross.setAttribute("x1",best.x);cross.setAttribute("x2",best.x);cross.style.display=""}
+    if(mark){mark.setAttribute("cx",best.x);mark.setAttribute("cy",best.y);mark.style.display=""}}
+  function hide(){tip.hidden=true;if(cross)cross.style.display="none";if(mark)mark.style.display="none"}
+  svg.addEventListener("pointermove",at);svg.addEventListener("pointerdown",at);svg.addEventListener("pointerleave",hide);
+}
+
+function renderPath(ws,m){
+  const c=cfg(),W=340,H=210,L0=34,R=58,T=10,B=22,g=m.budgets[UI.budget];
+  const pts=ws.filter(w=>typeof w.balance==="number").map(w=>({t:parseD(w.monday)+6*DAY,v:w.balance,w}));
+  if(!pts.length){$("pathChart").innerHTML='<div class="empty">Укажи остаток хотя бы в одной неделе.</div>';return}
+  const t0=pts[0].t,t1=parseD(c.deadline),endV=m.bal+m.pace*m.left;
+  const yMax=Math.max(g.KAI.goal,g.SNG.goal,endV)*1.06;
+  const X=t=>L0+(t-t0)/(t1-t0||1)*(W-L0-R),Y=v=>T+(1-v/yMax)*(H-T-B);
+  let s="";
+  for(const v of niceTicks(0,yMax,4))s+=`<line class="grid" x1="${L0}" x2="${W-R}" y1="${Y(v)}" y2="${Y(v)}"/><text class="axis" x="${L0-6}" y="${Y(v)+4}" text-anchor="end">${kfmt(v)}</text>`;
+  for(let y=new Date(t0).getUTCFullYear()+1;Date.UTC(y,0,1)<=t1;y++){const t=Date.UTC(y,0,1),x=X(t);s+=`<line class="grid" x1="${x}" x2="${x}" y1="${T}" y2="${H-B}" stroke-dasharray="2 3"/>`;
+    if(x-L0>34&&W-R-x>34)s+=`<text class="axis" x="${x}" y="${H-6}" text-anchor="middle">${y}</text>`}
+  s+=`<text class="axis" x="${L0}" y="${H-6}" text-anchor="start">${dm(t0)}</text><text class="axis" x="${W-R}" y="${H-6}" text-anchor="end">${dm(t1)}</text>`;
+  const goals=[["SNG",g.SNG.goal,"var(--series-1)"],["KAI",g.KAI.goal,"var(--series-2)"]];
+  const gy=goals.map(x=>Y(x[1]));let ly=gy.slice();if(Math.abs(ly[0]-ly[1])<13){const mid=(ly[0]+ly[1])/2;ly=ly[0]>ly[1]?[mid+7,mid-7]:[mid-7,mid+7]}
+  goals.forEach((x,i)=>{s+=`<line x1="${L0}" x2="${W-R}" y1="${gy[i]}" y2="${gy[i]}" stroke="${x[2]}" stroke-width="2"/><text class="lbl" x="${W-R+5}" y="${ly[i]+4}" fill="${x[2]}">${x[0]} ${kfmt(x[1])}</text>`});
+  const line=pts.map((p,i)=>(i?"L":"M")+X(p.t).toFixed(1)+" "+Y(p.v).toFixed(1)).join(" ");
+  s+=`<path d="${line} L${X(pts[pts.length-1].t).toFixed(1)} ${Y(0)} L${X(t0).toFixed(1)} ${Y(0)} Z" fill="var(--ai)" opacity=".12"/>`;
+  const lp=pts[pts.length-1];
+  s+=`<path d="M${X(lp.t)} ${Y(lp.v)} L${X(t1)} ${Y(endV)}" stroke="var(--ink)" stroke-width="2" stroke-dasharray="5 4" fill="none" opacity=".55"/>`;
+  s+=`<path d="${line}" stroke="var(--ai)" stroke-width="2.5" fill="none" stroke-linejoin="round" stroke-linecap="round"/>`;
+  s+=`<circle cx="${X(lp.t)}" cy="${Y(lp.v)}" r="4.5" fill="var(--ai)" stroke="var(--surface-raised)" stroke-width="2"/><circle cx="${X(t1)}" cy="${Y(endV)}" r="4" fill="var(--surface-raised)" stroke="var(--ink)" stroke-width="2"/>`;
+  s+=`<line class="cross" y1="${T}" y2="${H-B}" stroke="var(--ink-muted)" stroke-width="1" style="display:none"/><circle class="mark" r="5" fill="var(--ai)" stroke="var(--surface-raised)" stroke-width="2" style="display:none"/>`;
+  $("pathChart").innerHTML=svgEl(W,H,s);
+  $("pathCap").textContent="Прогноз к "+dmy(t1)+": "+eur(endV)+" € при темпе "+eur(m.pace)+" €/нед, без новых разовых трат"+(m.oneoffs>0?" · разовые за всё время "+eur(m.oneoffs)+" €":"");
+  $("pathLegend").innerHTML=`<span><i style="background:var(--ai)"></i>накоплено</span><span><i class="dash"></i>прогноз</span><span><i style="background:var(--series-1)"></i>цель SNG</span><span><i style="background:var(--series-2)"></i>цель KAI</span>`;
+  const tp=pts.map(p=>({x:X(p.t),y:Y(p.v),p}));tp.push({x:X(t1),y:Y(endV),fc:true});
+  attachTip($("pathChart"),tp,q=>q.fc?`прогноз ${dmy(t1)}<br><b>${eur(endV)} €</b>`:`${dm(q.p.t-6*DAY)}–${dm(q.p.t)}<br><b>${eur(q.p.v)} €</b>`);
+}
+
+function renderBars(ws,m){
+  const W=340,H=180,L0=34,R=8,T=12,B=22,show=ws.slice(-13),g=m.budgets[UI.budget];
+  const vals=show.flatMap(w=>[w.saved,reg(w)]);
+  const hi=Math.max(...vals,g.KAI.need,g.SNG.need)*1.12,lo=Math.min(0,...vals)*1.15;
+  const Y=v=>T+(hi-v)/(hi-lo)*(H-T-B),n=show.length,slot=(W-L0-R)/Math.max(n,6),bw=Math.min(22,slot-4);
+  let s="";
+  for(const v of niceTicks(lo,hi,4))s+=`<line class="grid" x1="${L0}" x2="${W-R}" y1="${Y(v)}" y2="${Y(v)}"/><text class="axis" x="${L0-6}" y="${Y(v)+4}" text-anchor="end">${nf0.format(Math.abs(v)<1e-9?0:v)}</text>`;
+  const bar=(cx,v)=>{const y0=Y(0),y1=Y(v),top=Math.min(y0,y1),h=Math.max(1,Math.abs(y1-y0)),r=Math.min(4,h/2);
+    return v>=0?`M${cx-bw/2} ${y0} V${top+r} Q${cx-bw/2} ${top} ${cx-bw/2+r} ${top} H${cx+bw/2-r} Q${cx+bw/2} ${top} ${cx+bw/2} ${top+r} V${y0} Z`
+      :`M${cx-bw/2} ${y0} V${top+h-r} Q${cx-bw/2} ${top+h} ${cx-bw/2+r} ${top+h} H${cx+bw/2-r} Q${cx+bw/2} ${top+h} ${cx+bw/2} ${top+h-r} V${y0} Z`};
+  let anyX=false;const pts=[];
+  show.forEach((w,i)=>{
+    const cx=L0+slot*(i+.5),y0=Y(0),y1=Y(w.saved),rv=reg(w);
+    if(hasX(w)){anyX=true;s+=`<path d="${bar(cx,rv)}" fill="none" stroke="var(--ai)" stroke-width="1.5" stroke-dasharray="3 2"/>`}
+    s+=`<path d="${bar(cx,w.saved)}" fill="${w.saved<0?"var(--shu)":"var(--ai)"}" opacity="${i===n-1?1:.75}"/>`;
+    if(i===n-1||w.saved<0)s+=`<text class="lbl" x="${cx}" y="${w.saved<0?y1+13:Math.min(y1,Y(rv))-5}" text-anchor="middle" fill="var(--ink)">${nf0.format(w.saved)}</text>`;
+    if(i===0||i===n-1||n<=7)s+=`<text class="axis" x="${cx}" y="${H-6}" text-anchor="middle">${dm(parseD(w.monday))}</text>`;
+    pts.push({x:cx,y:Math.min(y0,y1,Y(rv)),w});
+  });
+  s+=`<line x1="${L0}" x2="${W-R}" y1="${Y(0)}" y2="${Y(0)}" stroke="var(--ink-muted)" stroke-width="1"/>`;
+  [[g.SNG.need,"var(--series-1)"],[g.KAI.need,"var(--series-2)"]].forEach(x=>{s+=`<line x1="${L0}" x2="${W-R}" y1="${Y(x[0])}" y2="${Y(x[0])}" stroke="${x[1]}" stroke-width="2" stroke-dasharray="6 4"/>`});
+  $("barsChart").innerHTML=svgEl(W,H,s);
+  const above=show.filter(w=>reg(w)>=g.KAI.need).length;
+  $("barsCap").textContent="Последние "+n+" нед · выше нормы KAI без разовых: "+above+" из "+n;
+  $("barsLegend").innerHTML=`<span><i style="background:var(--ai)"></i>отложено</span>`+(anyX?`<span><i class="ghost"></i>без разовых</span>`:"")+`<span><i style="background:var(--shu)"></i>минус</span><span><i style="background:var(--series-1)"></i>нужно SNG ${eur(g.SNG.need)}</span><span><i style="background:var(--series-2)"></i>нужно KAI ${eur(g.KAI.need)}</span>`;
+  attachTip($("barsChart"),pts,q=>`${dm(parseD(q.w.monday))}–${dm(parseD(q.w.monday)+6*DAY)}<br><b>${signed(q.w.saved)} €</b>`+(hasX(q.w)?`<br>без разовых ${signed(reg(q.w))}`+(q.w.note?` · ${esc(q.w.note)}`:""):""));
+}
+
+function renderRate(){
+  const keys=Object.keys(L.rates).sort(),box=$("rateChart");
+  if(keys.length<2){box.innerHTML=`<div class="empty">${navigator.onLine?"Загружаю курс…":"Курс загрузится, когда появится интернет."}</div>`;return}
+  const cut=iso(todayUTC()-90*DAY),ks=keys.filter(k=>k>=cut),use=ks.length>=2?ks:keys.slice(-60),vals=use.map(k=>L.rates[k]);
+  const W=340,H=130,L0=34,R=40,T=10,B=22,lo=Math.floor(Math.min(...vals)-1),hi=Math.ceil(Math.max(...vals)+1),t0=parseD(use[0]),t1=parseD(use[use.length-1]);
+  const X=t=>L0+(t-t0)/(t1-t0||1)*(W-L0-R),Y=v=>T+(hi-v)/(hi-lo)*(H-T-B);
+  let s="";
+  for(const v of niceTicks(lo,hi,3))s+=`<line class="grid" x1="${L0}" x2="${W-R}" y1="${Y(v)}" y2="${Y(v)}"/><text class="axis" x="${L0-6}" y="${Y(v)+4}" text-anchor="end">${v}</text>`;
+  const line=use.map((k,i)=>(i?"L":"M")+X(parseD(k)).toFixed(1)+" "+Y(L.rates[k]).toFixed(1)).join(" ");
+  s+=`<path d="${line} L${X(t1)} ${H-B} L${X(t0)} ${H-B} Z" fill="var(--series-2)" opacity=".14"/><path d="${line}" stroke="var(--series-2)" stroke-width="2" fill="none" stroke-linejoin="round"/>`;
+  const lv=vals[vals.length-1];
+  s+=`<circle cx="${X(t1)}" cy="${Y(lv)}" r="4" fill="var(--series-2)" stroke="var(--surface-raised)" stroke-width="2"/><text class="lbl" x="${X(t1)+7}" y="${Y(lv)+4}" fill="var(--ink)">${nf1.format(lv)}</text>`;
+  s+=`<text class="axis" x="${L0}" y="${H-6}">${dm(t0)}</text><text class="axis" x="${W-R}" y="${H-6}" text-anchor="end">${dm(t1)}</text>`;
+  s+=`<line class="cross" y1="${T}" y2="${H-B}" stroke="var(--ink-muted)" stroke-width="1" style="display:none"/><circle class="mark" r="4" fill="var(--series-2)" stroke="var(--surface-raised)" stroke-width="2" style="display:none"/>`;
+  box.innerHTML=svgEl(W,H,s);
+  const wk=rateAt(iso(t1-7*DAY)),d7=wk?lv-wk.rate:0,d90=lv-vals[0];
+  const trend=v=>v>0.05?"иена слабеет ↑":v<-0.05?"иена крепнет ↓":"без изменений";
+  $("rateCap").innerHTML=`За неделю <span class="${d7>=0?"pos-t":"neg-t"}">${d7>=0?"+":"−"}${nf2.format(Math.abs(d7))}</span> (${trend(d7)}) · за 90 дней ${d90>=0?"+":"−"}${nf1.format(Math.abs(d90))}`;
+  attachTip(box,use.map(k=>({x:X(parseD(k)),y:Y(L.rates[k]),k})),q=>`${dmy(parseD(q.k))}<br><b>${nf2.format(L.rates[q.k])} ¥</b>`);
+}
+
+function renderChanges(ws,m,cr){
+  const box=$("changes"),c=cfg();
+  if(ws.length<2){box.innerHTML='<div class="empty">Появится после второй недели.</div>';return}
+  const prevW=ws.slice(0,-1),pr=cr.manual?cr:rateAt(iso(parseD(prevW[prevW.length-1].monday)+6*DAY));
+  const pm=metrics(prevW,pr?pr.rate:cr.rate,c),cur=m.budgets[UI.budget],old=pm.budgets[UI.budget],last=ws[ws.length-1];
+  const row=(k,v,cls)=>`<div class="r"><span class="k">${k}</span><span class="v num ${cls||""}">${v}</span></div>`;
+  const d=(x,y)=>({t:signed(x-y),c:x-y>=0?"pos-t":"neg-t"});
+  const dp=d(m.pace,pm.pace),dS=d(cur.SNG.fc,old.SNG.fc),dK=d(cur.KAI.fc,old.KAI.fc),gd=cur.KAI.goal-old.KAI.goal,lr=reg(last);
+  let h=row("Неделя",signed(last.saved)+" € · норма KAI "+eur(cur.KAI.need),hasX(last)?"":(last.saved>=cur.KAI.need?"pos-t":"neg-t"));
+  if(hasX(last))h+=row("Без разовых"+(last.note?" ("+esc(last.note)+")":""),signed(lr)+" €",lr>=cur.KAI.need?"pos-t":"neg-t");
+  h+=row("Темп",eur(pm.pace)+" → "+eur(m.pace)+" ("+dp.t+")",dp.c);
+  h+=row("Прогноз SNG",signed(old.SNG.fc)+" → "+signed(cur.SNG.fc),dS.c);
+  h+=row("Прогноз KAI",signed(old.KAI.fc)+" → "+signed(cur.KAI.fc),dK.c);
+  h+=row("Цель KAI от курса",(gd>0?"дороже на ":"дешевле на ")+eur(Math.abs(gd))+" €",gd>0?"neg-t":"pos-t");
+  box.innerHTML=h;
+}
+
+function renderList(ws){
+  const box=$("weekList");
+  if(!ws.length){box.innerHTML='<div class="empty"><b>Пока нет недель</b>Нажми «+» вверху, чтобы добавить первую.</div>';return}
+  const all=ws.slice().reverse(),lim=UI.showAll?all:all.slice(0,6);
+  box.innerHTML=lim.map(w=>{const t=parseD(w.monday);return `<button class="row" data-monday="${esc(w.monday)}">
+    <span class="d">${dm(t)}–${dmy(t+6*DAY)}<small>остаток ${typeof w.balance==="number"?eur(w.balance)+" €":"—"}${(w.oneoff||0)>0?" · разовые −"+eur(w.oneoff):""}${(w.income||0)>0?" · доход +"+eur(w.income):""}${w.note?" · "+esc(w.note):""}</small></span>
+    <span class="amt num ${w.saved<0?"neg-t":""}">${signed(w.saved)}<svg viewBox="0 0 8 13" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 1l5.5 5.5L1 12"/></svg></span></button>`}).join("")
+    +(all.length>6?`<button class="more" id="btnMore">${UI.showAll?"Свернуть":"Все недели ("+all.length+")"}</button>`:"");
+  box.querySelectorAll("button.row").forEach(b=>b.onclick=()=>openWeek(b.dataset.monday));
+  const mb=$("btnMore");if(mb)mb.onclick=()=>{UI.showAll=!UI.showAll;renderList(ws)};
+}
+
+/* ---------- sync with GitHub ---------- */
+let syncState="local";
+function setStatus(s){
+  syncState=s;const el=$("sync");el.dataset.s=s;
+  const t={ok:"сохранено"+(L.lastSync?" · "+hhmm(L.lastSync):""),syncing:"синхронизация…",offline:L.dirty?"офлайн · ждёт сети":"офлайн",
+    local:"только на этом устройстве",auth:"токен не работает",norepo:"нет доступа к данным",error:"не удалось, повторю"}[s];
+  $("syncT").textContent=t;
+}
+const b64e=s=>{const b=new TextEncoder().encode(s);let x="";for(let i=0;i<b.length;i+=0x8000)x+=String.fromCharCode.apply(null,b.subarray(i,i+0x8000));return btoa(x)};
+const b64d=s=>new TextDecoder().decode(Uint8Array.from(atob(s.replace(/\s/g,"")),c=>c.charCodeAt(0)));
+async function gh(a,method,body){
+  return fetch(`https://api.github.com/repos/${a.repo}/contents/${DATA_PATH}`,{method,cache:"no-store",
+    headers:{Authorization:"Bearer "+a.token,Accept:"application/vnd.github+json","X-GitHub-Api-Version":"2022-11-28",...(body?{"Content-Type":"application/json"}:{})},
+    body:body?JSON.stringify(body):undefined});
+}
+const sortObj=o=>Object.keys(o||{}).sort().reduce((r,k)=>(r[k]=o[k],r),{});
+const docOf=s=>({schema:1,weeks:sortObj(s.weeks),config:s.config||null,rates:sortObj(s.rates)});
+function merge(a,b){
+  if(!b)return{weeks:{...a.weeks},config:a.config,rates:{...a.rates}};
+  const weeks={...(b.weeks||{})};
+  for(const[k,v] of Object.entries(a.weeks)){const o=weeks[k];if(!o||(v.updatedAt||"")>(o.updatedAt||""))weeks[k]=v}
+  const ac=a.config,bc=b.config||null;
+  const config=!ac?bc:!bc?ac:((ac.updatedAt||"")>(bc.updatedAt||"")?ac:bc);
+  return{weeks,config,rates:{...(b.rates||{}),...a.rates}};
+}
+let syncing=false,again=false,timer=null,retry=null;
+function scheduleSync(ms){clearTimeout(timer);timer=setTimeout(sync,ms==null?1500:ms)}
+async function sync(){
+  const a=getAuth();
+  if(!a){setStatus("local");return}
+  if(!navigator.onLine){setStatus("offline");return}
+  if(syncing){again=true;return}
+  syncing=true;setStatus("syncing");clearTimeout(retry);
+  try{
+    for(let attempt=0;attempt<3;attempt++){
+      const g=await gh(a,"GET");
+      if(g.status===401){setStatus("auth");return}
+      if(g.status===403){setStatus("norepo");return}
+      let remote=null,sha;
+      if(g.ok){const j=await g.json();sha=j.sha;remote=JSON.parse(b64d(j.content||""))}
+      else if(g.status!==404)throw new Error("GET "+g.status);
+      const merged=merge(L,remote);
+      L.weeks=merged.weeks;L.config=merged.config;L.rates=merged.rates;persist();render();
+      const out=docOf(merged);
+      if(remote&&JSON.stringify(docOf(remote))===JSON.stringify(out)){L.dirty=false;break}
+      const p=await gh(a,"PUT",{message:"Копилка · "+new Date().toLocaleString("ru-RU"),content:b64e(JSON.stringify({...out,updatedAt:nowIso()},null,1)),...(sha?{sha}:{})});
+      if(p.status===409||(p.status===422&&sha))continue;
+      if(p.status===401){setStatus("auth");return}
+      if(p.status===403||p.status===404){setStatus("norepo");return}
+      if(!p.ok)throw new Error("PUT "+p.status);
+      L.dirty=false;break;
+    }
+    L.lastSync=Date.now();persist();setStatus("ok");
+  }catch(e){setStatus("error");retry=setTimeout(sync,30000)}
+  finally{syncing=false;if(again){again=false;scheduleSync(300)}}
+}
+function changed(){L.dirty=true;persist();render();if(getAuth())navigator.onLine?scheduleSync():setStatus("offline")}
+
+/* ---------- exchange rate ---------- */
+async function fetchRates(force){
+  if(!navigator.onLine)return;
+  if(!force&&Date.now()-(L.ratesFetchedAt||0)<3*3600e3)return;
+  const keys=Object.keys(L.rates).sort();
+  const from=keys.length?iso(parseD(keys[keys.length-1])-7*DAY):iso(todayUTC()-120*DAY);
+  try{
+    const r=await fetch(`https://api.frankfurter.dev/v1/${from}..?from=EUR&to=JPY`,{cache:"no-store"});
+    if(!r.ok)return;const j=await r.json();let added=false;
+    for(const[d,v] of Object.entries(j.rates||{})){const x=v&&v.JPY;if(typeof x==="number"&&L.rates[d]!==x){L.rates[d]=x;added=true}}
+    L.ratesFetchedAt=Date.now();persist();
+    if(added){render();if(getAuth())scheduleSync()}
+  }catch(e){}
+}
+
+/* ---------- sheets ---------- */
+let openSheet=null,editing=null,delArmed=false;
+function show(el){if(openSheet&&openSheet!==el){openSheet.classList.remove("open");openSheet.hidden=true}$("scrim").hidden=false;el.hidden=false;requestAnimationFrame(()=>requestAnimationFrame(()=>{$("scrim").classList.add("open");el.classList.add("open")}));openSheet=el}
+function close(){if(!openSheet)return;const el=openSheet;openSheet=null;$("scrim").classList.remove("open");el.classList.remove("open");setTimeout(()=>{if(openSheet!==el){el.hidden=true;if(!openSheet)$("scrim").hidden=true}},280)}
+$("scrim").onclick=close;document.querySelectorAll("[data-close]").forEach(b=>b.onclick=close);
+document.addEventListener("keydown",e=>{
+  if(e.key==="Escape")close();
+  else if((e.key==="n"||e.key==="т")&&!openSheet&&!/INPUT|TEXTAREA/.test(document.activeElement.tagName)){e.preventDefault();openWeek(null)}
+});
+function err(id,t){$(id).textContent=t;$(id).hidden=false}
+function setRange(){const v=$("wMonday").value;if(!v){$("wRange").textContent="неделя пн–вс";return}const t=mondayOf(parseD(v));$("wRange").textContent=dm(t)+"–"+dmy(t+6*DAY)}
+$("wMonday").addEventListener("change",setRange);
+const fmtIn=v=>v||v===0?String(v).replace(".",","):"";
+
+function openWeek(monday){
+  const ws=sortedWeeks(liveWeeks());editing=monday||null;delArmed=false;
+  $("wErr").hidden=true;$("wDelete").hidden=!editing;$("wDelete").classList.remove("confirm");$("wDelete").textContent="Удалить неделю";
+  if(editing){const w=L.weeks[editing];$("wTitle").textContent="Изменить неделю";$("wMonday").value=w.monday;$("wSaved").value=fmtIn(w.saved);$("wBalance").value=typeof w.balance==="number"?fmtIn(w.balance):"";
+    $("wOneoff").value=w.oneoff?fmtIn(w.oneoff):"";$("wIncome").value=w.income?fmtIn(w.income):"";$("wNote").value=w.note||""}
+  else{const last=ws[ws.length-1],next=last?parseD(last.monday)+7*DAY:mondayOf(todayUTC());$("wTitle").textContent="Новая неделя";$("wMonday").value=iso(next);$("wSaved").value="";
+    const lb=last?withBalances(ws).pop().balance:null;$("wBalance").value="";$("wBalance").placeholder=typeof lb==="number"?"было "+eur(lb):"—";
+    $("wOneoff").value="";$("wIncome").value="";$("wNote").value=""}
+  setRange();show($("sheetWeek"));if(!editing)setTimeout(()=>$("wSaved").focus(),320);
+}
+$("wSave").onclick=()=>{
+  const v=$("wMonday").value,saved=num($("wSaved").value),balRaw=$("wBalance").value.trim(),bal=balRaw?num(balRaw):null;
+  const oRaw=$("wOneoff").value.trim(),iRaw=$("wIncome").value.trim(),oneoff=oRaw?num(oRaw):0,income=iRaw?num(iRaw):0,note=$("wNote").value.trim().slice(0,40);
+  if(!v)return err("wErr","Выбери дату недели.");
+  if(!isFinite(saved))return err("wErr","Введи сумму, отложенную за неделю.");
+  if(balRaw&&!isFinite(bal))return err("wErr","Остаток должен быть числом.");
+  if(!isFinite(oneoff)||oneoff<0)return err("wErr","Разовые траты: введи сумму без минуса.");
+  if(!isFinite(income)||income<0)return err("wErr","Разовый доход: введи сумму без минуса.");
+  const monday=iso(mondayOf(parseD(v))),t=nowIso(),r2=x=>Math.round(x*100)/100;
+  const doc={monday,saved:r2(saved),updatedAt:t};
+  if(bal!=null)doc.balance=r2(bal);if(oneoff>0)doc.oneoff=r2(oneoff);if(income>0)doc.income=r2(income);if(note)doc.note=note;
+  if(editing&&editing!==monday)L.weeks[editing]={monday:editing,deleted:true,updatedAt:t};
+  L.weeks[monday]=doc;close();changed();
+};
+$("wDelete").onclick=()=>{
+  if(!delArmed){delArmed=true;$("wDelete").classList.add("confirm");$("wDelete").textContent="Нажми ещё раз, чтобы удалить";return}
+  L.weeks[editing]={monday:editing,deleted:true,updatedAt:nowIso()};close();changed();
+};
+
+function openSettings(){
+  const c=cfg();$("sErr").hidden=true;
+  $("sRate").value=typeof c.manualRate==="number"?fmtIn(c.manualRate):"";
+  const auto=rateAt(iso(todayUTC()));$("sRateNow").textContent=auto?"пусто — авто, сейчас "+nf2.format(auto.rate)+" ("+dm(parseD(auto.date))+")":"пусто — брать автоматический";
+  $("sMine").value=c.mine;$("sComfort").value=c.comfort;$("sMonths").value=c.months;$("sSNG").value=c.SNG;$("sKAI").value=c.KAI;
+  $("sExtra").value=c.extraEur;$("sDeadline").value=c.deadline;$("sHoliday").value=c.holidayEur;$("sWindow").value=c.window;
+  show($("sheetSet"));
+}
+$("sSave").onclick=()=>{
+  const r=$("sRate").value.trim();
+  const n={manualRate:r?num(r):null,mine:num($("sMine").value),comfort:num($("sComfort").value),months:num($("sMonths").value),SNG:num($("sSNG").value),KAI:num($("sKAI").value),
+    extraEur:num($("sExtra").value),deadline:$("sDeadline").value,holidayEur:num($("sHoliday").value),window:Math.round(num($("sWindow").value)),extraPayouts:cfg().extraPayouts};
+  for(const k of ["mine","comfort","months","SNG","KAI","extraEur","holidayEur","window"])if(!isFinite(n[k])||n[k]<0)return err("sErr","Проверь поля: все суммы должны быть числами.");
+  if(n.manualRate!==null&&!(n.manualRate>50))return err("sErr","Курс выглядит неверно.");
+  if(!n.deadline)return err("sErr","Укажи последний день.");
+  if(n.window<1)n.window=1;
+  L.config={...n,updatedAt:nowIso()};close();changed();
+};
+
+function openSync(){
+  const a=getAuth();$("yErr").hidden=true;$("yOk").hidden=true;
+  $("yToken").value="";$("yToken").placeholder=a?"токен сохранён — вставь новый, чтобы заменить":"github_pat_…";
+  $("yRepo").value=a?a.repo:DEFAULT_REPO;$("yForget").hidden=!a;$("ySyncNow").hidden=!a;
+  $("yState").textContent=a?("Подключено к "+a.repo+(L.lastSync?". Последняя синхронизация "+new Date(L.lastSync).toLocaleString("ru-RU"):"")+"."):"Не подключено. Данные хранятся только на этом устройстве.";
+  show($("sheetSync"));
+}
+$("yConnect").onclick=async()=>{
+  const tok=$("yToken").value.trim(),repo=$("yRepo").value.trim().replace(/^https?:\/\/github\.com\//,"").replace(/\/$/,"");
+  const a0=getAuth(),token=tok||(a0&&a0.token);
+  $("yErr").hidden=true;$("yOk").hidden=true;
+  if(!token)return err("yErr","Вставь токен.");
+  if(!/^[\w.-]+\/[\w.-]+$/.test(repo))return err("yErr","Репозиторий в виде владелец/название, например "+DEFAULT_REPO+".");
+  if(!navigator.onLine)return err("yErr","Нужен интернет, чтобы проверить токен.");
+  try{
+    const r=await fetch(`https://api.github.com/repos/${repo}`,{cache:"no-store",headers:{Authorization:"Bearer "+token,Accept:"application/vnd.github+json"}});
+    if(r.status===401)return err("yErr","GitHub не принял токен. Проверь, что он скопирован целиком и не истёк.");
+    if(r.status===404||r.status===403)return err("yErr","Токен работает, но не видит "+repo+". Проверь, что репозиторий выбран в настройках токена.");
+    if(!r.ok)return err("yErr","GitHub ответил ошибкой "+r.status+". Попробуй ещё раз.");
+  }catch(e){return err("yErr","Не удалось связаться с GitHub. Проверь интернет.")}
+  setAuth({token,repo});$("yToken").value="";$("yOk").textContent="Подключено. Синхронизирую…";$("yOk").hidden=false;$("yForget").hidden=false;$("ySyncNow").hidden=false;
+  await sync();render();
+  $("yOk").textContent=syncState==="ok"?"Готово, данные синхронизированы.":"Подключено, но синхронизация не прошла: "+$("syncT").textContent+".";
+};
+$("ySyncNow").onclick=()=>{close();sync()};
+$("yCopy").onclick=async()=>{
+  const txt=JSON.stringify(docOf(L),null,1);
+  try{await navigator.clipboard.writeText(txt);$("yOk").textContent="Данные скопированы в буфер обмена.";$("yOk").hidden=false}
+  catch(e){err("yErr","Не получилось скопировать. Данные также лежат в репозитории на GitHub.")}
+};
+$("yForget").onclick=()=>{setAuth(null);setStatus("local");close();render()};
+$("sOpenSync").onclick=openSync;$("obConnect").onclick=openSync;
+$("sync").onclick=()=>{if(syncState==="auth"||syncState==="norepo"||syncState==="local")openSync();else sync()};
+$("btnAdd").onclick=()=>openWeek(null);$("btnSettings").onclick=openSettings;
+$("segMine").onclick=()=>{UI.budget="mine";try{localStorage.setItem("kopilka.budget","mine")}catch(e){}render()};
+$("segComfort").onclick=()=>{UI.budget="comfort";try{localStorage.setItem("kopilka.budget","comfort")}catch(e){}render()};
+
+/* ---------- start ---------- */
+render();
+setStatus(getAuth()?(navigator.onLine?"ok":"offline"):"local");
+fetchRates(false);sync();
+window.addEventListener("online",()=>{fetchRates(false);sync()});
+window.addEventListener("offline",()=>setStatus(getAuth()?"offline":"local"));
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"){fetchRates(false);sync()}});
+if("serviceWorker" in navigator)window.addEventListener("load",()=>{navigator.serviceWorker.register("sw.js").then(r=>{if(navigator.onLine)r.update()}).catch(()=>{})});
+})();
+</script>
+</body>
+</html>
