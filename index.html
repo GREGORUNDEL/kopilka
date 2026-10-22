@@ -25,7 +25,7 @@
   --scrim:rgba(0,0,0,.32); --nav:rgba(242,242,247,.88); --bar:var(--surface-raised);
   --font-sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","Hiragino Sans","Noto Sans JP",system-ui,sans-serif;
   --font-rounded:ui-rounded,"SF Pro Rounded",-apple-system,"Hiragino Maru Gothic ProN",system-ui,sans-serif;
-  --r-sm:8px; --r-md:14px; --r-lg:22px; --tabh:52px; --tabpad:max(calc(env(safe-area-inset-bottom,0px) - 16px),6px);
+  --r-sm:8px; --r-md:14px; --r-lg:22px; --tabh:52px; --tabpad:max(calc(env(safe-area-inset-bottom,0px) - 22px),4px);
   --safe-top:env(safe-area-inset-top,0px); --top-gap:0px;
   color-scheme:light;
 }
@@ -342,6 +342,7 @@ h1.title.sm{font-size:28px;line-height:34px;margin:0}
 </style>
 </head>
 <body>
+<div id="vh" aria-hidden="true" style="position:fixed;inset:0;visibility:hidden;pointer-events:none;z-index:-1"></div>
 <div id="app"></div>
 <nav class="tabbar" aria-label="Разделы"><div class="tabbar-in" id="tabs"></div></nav>
 <button class="fab" id="fab" aria-label="Добавить операцию" title="Добавить операцию (N)"></button>

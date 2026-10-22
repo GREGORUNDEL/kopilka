@@ -1,5 +1,5 @@
-// Копилка — service worker: the app opens offline from cache and refreshes itself in the background.
-const CACHE = "kopilka-shell-v2";
+// Копилка — service worker. Network first (so updates show on the next launch), cache when offline.
+const CACHE = "kopilka-shell-v3";
 const SHELL = ["./", "./index.html", "./app.js", "./icons.js", "./manifest.webmanifest", "./icon-180.png", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", (e) => {
@@ -15,19 +15,23 @@ self.addEventListener("activate", (e) => {
   );
 });
 
-// Stale-while-revalidate for the app's own files; GitHub API and rate APIs pass through untouched.
 self.addEventListener("fetch", (e) => {
   const url = new URL(e.request.url);
   if (e.request.method !== "GET" || url.origin !== self.location.origin) return;
   if (url.pathname.includes("/old/")) return;
-  e.respondWith(
-    caches.open(CACHE).then(async (cache) => {
-      const key = e.request.mode === "navigate" ? "./" : e.request;
+  const key = e.request.mode === "navigate" ? "./" : e.request;
+  e.respondWith((async () => {
+    const cache = await caches.open(CACHE);
+    try {
+      const res = await Promise.race([
+        fetch(e.request, { cache: "no-cache" }),
+        new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), 3500)),
+      ]);
+      if (res.ok) cache.put(key, res.clone());
+      return res;
+    } catch (err) {
       const hit = await cache.match(key, { ignoreSearch: true });
-      const net = fetch(e.request)
-        .then((res) => { if (res.ok) cache.put(key, res.clone()); return res; })
-        .catch(() => hit);
-      return hit || net;
-    })
-  );
+      return hit || Response.error();
+    }
+  })());
 });

@@ -1025,6 +1025,16 @@ document.addEventListener("keydown",e=>{
   if(!stack.length&&(e.key==="n"||e.key==="т")&&!/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)){e.preventDefault();openOp(null)}
 });
 
+/* ================= iOS viewport heal =================
+   Home-screen web apps on iOS can keep a shrunken viewport after the keyboard closes,
+   leaving a black band under the tab bar. Force WebKit to re-measure when that happens. */
+let maxVH=window.innerHeight;
+window.addEventListener("resize",()=>{if(window.innerHeight>maxVH)maxVH=window.innerHeight});
+function healViewport(){if(window.innerHeight>=maxVH-4)return;const y=window.scrollY,el=$("vh");if(!el)return;
+  el.style.display="none";void el.offsetHeight;el.style.display="";const b=document.body;b.style.display="none";void b.offsetHeight;b.style.display="";window.scrollTo(0,y)}
+document.addEventListener("focusout",e=>{if(/INPUT|TEXTAREA|SELECT/.test(e.target.tagName))setTimeout(healViewport,160)});
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")setTimeout(healViewport,300)});
+
 /* ================= start ================= */
 render();
 if(getAuth())setStatus(navigator.onLine?"ok":"offline");
