@@ -26,6 +26,7 @@
   --font-sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","Hiragino Sans","Noto Sans JP",system-ui,sans-serif;
   --font-rounded:ui-rounded,"SF Pro Rounded",-apple-system,"Hiragino Maru Gothic ProN",system-ui,sans-serif;
   --r-sm:8px; --r-md:14px; --r-lg:22px; --tabh:56px;
+  --safe-top:env(safe-area-inset-top,0px); --top-gap:0px;
   color-scheme:light;
 }
 @media (prefers-color-scheme: dark){:root{
@@ -39,9 +40,11 @@
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%;background:var(--surface)}
 [hidden]{display:none!important}
+/* Home-screen app on iOS: the system draws its own fade under the status bar (WebKit bug 301994 can also report a 0 inset), so keep content clear of it */
+@media (display-mode: standalone){:root{--safe-top:max(env(safe-area-inset-top,0px),59px);--top-gap:18px}}
 body{margin:0;background:var(--surface);color:var(--ink);font-family:var(--font-sans);font-size:17px;line-height:22px;-webkit-font-smoothing:antialiased;
-  padding-top:env(safe-area-inset-top,0px);padding-bottom:calc(var(--tabh) + env(safe-area-inset-bottom,0px) + 24px)}
-body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+  padding-top:calc(var(--safe-top) + var(--top-gap));padding-bottom:calc(var(--tabh) + env(safe-area-inset-bottom,0px) + 24px)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:var(--safe-top);z-index:10;background:var(--surface)}
 button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;-webkit-tap-highlight-color:transparent;padding:0}
 button:focus-visible,input:focus-visible,select:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--ai);outline-offset:2px}
 input,select{font:inherit;color:inherit}
@@ -53,7 +56,7 @@ svg.i{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stro
 /* page frame */
 .page{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
 .wrap{max-width:640px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
-.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--surface);
+.top{position:relative;z-index:5;background:var(--surface);
   margin:0 calc(-1 * max(16px,env(safe-area-inset-right,0px))) 0 calc(-1 * max(16px,env(safe-area-inset-left,0px)));
   padding:8px max(16px,env(safe-area-inset-right,0px)) 8px max(16px,env(safe-area-inset-left,0px))}
 .top-in{max-width:640px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:36px}
@@ -201,9 +204,9 @@ h1.title{margin:4px 0 0;font-size:34px;line-height:41px;font-weight:700;letter-s
 .scrim{position:fixed;inset:0;background:var(--scrim);z-index:30;opacity:0;transition:opacity .2s}
 .scrim.open{opacity:1}
 .sheet{position:fixed;left:50%;bottom:0;width:min(640px,100%);z-index:31;background:var(--surface);border-radius:var(--r-lg) var(--r-lg) 0 0;
-  max-height:calc(100% - env(safe-area-inset-top,0px) - 10px);display:flex;flex-direction:column;transform:translate(-50%,100%);transition:transform .28s cubic-bezier(.2,.8,.2,1)}
+  max-height:calc(100% - var(--safe-top) - var(--top-gap) - 10px);display:flex;flex-direction:column;transform:translate(-50%,100%);transition:transform .28s cubic-bezier(.2,.8,.2,1)}
 .sheet.open{transform:translate(-50%,0)}
-.sheet.tall{height:calc(100% - env(safe-area-inset-top,0px) - 10px)}
+.sheet.tall{height:calc(100% - var(--safe-top) - var(--top-gap) - 10px)}
 .sheet-head{flex:none;display:flex;justify-content:space-between;align-items:center;gap:8px;padding:12px max(16px,env(safe-area-inset-right,0px)) 8px max(16px,env(safe-area-inset-left,0px))}
 .sheet-head h2{margin:0;font-size:17px;font-weight:700;text-align:center;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sheet-head>button{color:var(--ai);font-size:17px;padding:4px 0;min-width:76px;text-align:left}
