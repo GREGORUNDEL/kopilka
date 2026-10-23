@@ -135,7 +135,7 @@ const UI=Object.assign({tab:"overview",budget:"mine",
   ops:{filter:"all",period:{kind:"week",anchor:todayIso()},accs:null,q:"",cat:null},
   ch:{mode:"total",group:"week",accs:null,sel:null},showAllWeeks:false},loadUI());
 UI.ov.period.anchor=todayIso();UI.ops.period.anchor=todayIso();UI.ops.cat=null;UI.ops.q="";UI.ov.open=null;UI.ch.sel=null;
-function saveUI(){lsSet("finance.ui",JSON.stringify({tab:UI.tab,budget:UI.budget,ov:{type:UI.ov.type,period:{kind:UI.ov.period.kind,from:UI.ov.period.from,to:UI.ov.period.to},accs:UI.ov.accs},
+function saveUI(){lsSet("finance.ui",JSON.stringify({tab:UI.tab,budget:UI.budget,budgetOpen:!!UI.budgetOpen,ov:{type:UI.ov.type,period:{kind:UI.ov.period.kind,from:UI.ov.period.from,to:UI.ov.period.to},accs:UI.ov.accs},
   ops:{filter:UI.ops.filter,period:{kind:UI.ops.period.kind,from:UI.ops.period.from,to:UI.ops.period.to},accs:UI.ops.accs},ch:{mode:UI.ch.mode,group:UI.ch.group,accs:UI.ch.accs}}))}
 
 /* ================= kopilka model ================= */
@@ -247,11 +247,11 @@ function accLabel(sel){
 function periodControls(scope,p){
   const kinds=[["day","День"],["week","Неделя"],["month","Месяц"],["year","Год"],["custom","Период"]];
   const r=periodRange(p);const next=shiftPeriod(p,1);const nextStart=periodRange(next).start;
-  return `<div class="seg" role="group" aria-label="Период">${kinds.map(([k,l])=>`<button data-act="pkind" data-scope="${scope}" data-v="${k}" aria-pressed="${p.kind===k}">${l}</button>`).join("")}</div>
-  ${p.kind==="custom"?`<div class="custom-range"><input type="date" id="${scope}-from" value="${esc(p.from||iso(todayMs()-30*DAY))}" aria-label="С"> — <input type="date" id="${scope}-to" value="${esc(p.to||todayIso())}" aria-label="По"></div>`
-  :`<div class="range"><button class="nav" data-act="pshift" data-scope="${scope}" data-v="-1" aria-label="Назад">${svgI("chevL")}</button>
-    <button class="lbl" data-act="ptoday" data-scope="${scope}">${esc(r.label)}</button>
-    <button class="nav" data-act="pshift" data-scope="${scope}" data-v="1" aria-label="Вперёд" ${nextStart>todayMs()?"disabled":""}>${svgI("chevR")}</button></div>`}`;
+  const kind=`<label class="pkind"><select data-pk="${scope}" aria-label="Период">${kinds.map(([k,l])=>`<option value="${k}" ${p.kind===k?"selected":""}>${l}</option>`).join("")}</select><span>${(kinds.find(x=>x[0]===p.kind)||kinds[1])[1]}${svgI("chevD")}</span></label>`;
+  if(p.kind==="custom")return `<div class="range custom"><div class="rmid">${kind}<div class="custom-range"><input type="date" id="${scope}-from" value="${esc(p.from||iso(todayMs()-30*DAY))}" aria-label="С"> — <input type="date" id="${scope}-to" value="${esc(p.to||todayIso())}" aria-label="По"></div></div></div>`;
+  return `<div class="range"><button class="nav" data-act="pshift" data-scope="${scope}" data-v="-1" aria-label="Назад">${svgI("chevL")}</button>
+    <div class="rmid">${kind}<button class="lbl" data-act="ptoday" data-scope="${scope}">${esc(r.label)}</button></div>
+    <button class="nav" data-act="pshift" data-scope="${scope}" data-v="1" aria-label="Вперёд" ${nextStart>todayMs()?"disabled":""}>${svgI("chevR")}</button></div>`;
 }
 
 /* ================= OVERVIEW ================= */
@@ -271,14 +271,13 @@ function renderOverview(){
   if(!getAuth()&&!accounts().length)h+=onboardCard();
   h+=`<div class="ov-grid"><div class="ov-col">`;
   h+=budgetCard();
-  h+=`<div class="seg" role="group" aria-label="Тип"><button data-act="ovtype" data-v="expense" aria-pressed="${type==="expense"}">Расходы</button><button data-act="ovtype" data-v="income" aria-pressed="${type==="income"}">Доходы</button></div>`;
-  h+=`<section class="card">${periodControls("ov",p)}`;
+  h+=`<section class="card ov-stats" id="ovStats"><div class="seg" role="group" aria-label="Тип"><button data-act="ovtype" data-v="expense" aria-pressed="${type==="expense"}">Расходы</button><button data-act="ovtype" data-v="income" aria-pressed="${type==="income"}">Доходы</button></div>${periodControls("ov",p)}`;
   // donut
   const segs=rows.map(x=>({v:x.v,color:x.c.color}));
   h+=`<div class="donut-wrap">${donut(segs)}<div class="donut-c"><b class="num">${nf2.format(sum)} €</b><span>${type==="expense"?"расходы":"доходы"} · ${ops.length} опер.</span></div></div></section>`;
   h+=`</div><div class="ov-col">`;
   if(rows.length){
-    h+=`<div class="list">`+rows.map(x=>{
+    h+=`<div class="list" id="ovCats">`+rows.map(x=>{
       const pct=sum?x.v/sum*100:0,open=S.open===x.id;
       const plan=x.c.plan>0&&p.kind==="month"?` · план ${eur(x.c.plan)} €`:"";
       let sub="";
@@ -290,7 +289,7 @@ function renderOverview(){
         <span class="pct num">${nf0.format(pct)}%</span><span class="amt num">${nf2.format(x.v)} €</span></button>${sub}`}).join("")+`</div>`;
   }else h+=`<div class="card empty"><b>Нет ${type==="expense"?"расходов":"доходов"} за период</b>Нажми «+», чтобы добавить.</div>`;
   h+=`</div></div></main>`;
-  after(()=>bindCustomRange("ov"));
+  after(()=>{bindCustomRange("ov");bindSwipe($("ovStats"),"ov");slideIn("#ovStats .donut-wrap,#ovCats")});
   return h;
 }
 function goalLine(){
@@ -301,13 +300,14 @@ function goalLine(){
 function budgetCard(){
   const B=weekBudget();if(!B)return"";const c=B.cur,neg=B.left<0;
   const lifeW=Math.max(B.life,B.spent,1),dW=Math.max(0,c.daily)/lifeW*100,fW=Math.max(0,c.free)/lifeW*100;
-  const head=`Неделя ${dm(B.mon)}–${dm(B.end-DAY)} · ${B.daysLeft===1?"последний день":"осталось "+B.daysLeft+" "+(B.daysLeft<5?"дня":"дней")}`;
+  const head=B.daysLeft===1?"последний день недели":"ещё "+B.daysLeft+" "+(B.daysLeft<5?"дня":"дней");
   const row=(k,v,cls,small)=>`<div class="r"><span class="k">${k}${small?`<small>${small}</small>`:""}</span><span class="v num ${cls||""}">${v}</span></div>`;
-  let h=`<section class="card budget"><div class="sub">${head}</div>
-    <div class="b-big"><span class="num ${neg?"neg-t":""}">${eur(Math.abs(B.left))} €</span>${!neg&&B.daysLeft>1?`<span class="b-day num">≈ ${eur(B.left/B.daysLeft)} € в день</span>`:""}</div>
-    <div class="b-cap">${neg?"перерасход: неделя закроется ниже нормы":"можно потратить до воскресенья"}</div>
+  const open=!!UI.budgetOpen;
+  let h=`<section class="card budget ${open?"open":""}"><button class="b-head" data-act="budgettoggle" aria-expanded="${open}">
+    <span class="b-main"><span class="b-big num ${neg?"neg-t":""}">${eur(Math.abs(B.left))} €</span><span class="b-cap">${neg?"перерасход недели":"можно потратить"}<br>${head}${!neg&&B.daysLeft>1?` · ≈ ${eur(B.left/B.daysLeft)} €/день`:""}</span></span>
+    <span class="b-chev">${svgI("chevD")}</span></button>
     <div class="b-bar" role="img" aria-label="Потрачено ${eur(B.spent)} из ${eur(B.life)} €"><i class="d" style="width:${dW.toFixed(1)}%"></i><i class="f" style="width:${fW.toFixed(1)}%"></i></div>
-    <div class="rows">`;
+    <div class="rows" ${open?"":"hidden"}>`;
   h+=row(B.arrived?"Доход за неделю":"Доход, ожидается",(B.arrived?"+":"≈ +")+eur(B.expInc),"pos-t",B.arrived?"":`зарплаты ещё нет · обычно ${eur(B.avgInc)} €`);
   if(B.need)h+=row("Отложить по норме KAI","−"+eur(B.need));
   h+=row("Счета месяца, в среднем","−"+eur(B.billShare),"",c.monthly>0?`на этой неделе оплачено ${eur(c.monthly)} €`+(c.bills.length?`: ${esc(c.bills.slice(0,3).join(", "))}`:""):"аренда, NS, подписки");
@@ -316,8 +316,8 @@ function budgetCard(){
   h+=row(`<i class="dot f"></i>Остальное`,"−"+eur(c.free));
   h+=`</div>`;
   const savedNow=c.inc+c.incOne-c.daily-c.free-c.monthly-c.oneoff;
-  h+=`<button class="b-foot" data-act="tab" data-v="kopilka"><span>Отложено за неделю <b class="num ${savedNow>=0?"":"neg-t"}">${signed(savedNow)} €</b>${c.oneoff>0?`<small>с учётом разовых −${eur(c.oneoff)} €${c.ones.length?": "+esc(c.ones.slice(0,2).join(", ")):""}</small>`:""}</span>${svgI("chevR")}</button></section>`;
-  return h;
+  if(open)h+=`<button class="b-foot" data-act="tab" data-v="kopilka"><span>Отложено за неделю <b class="num ${savedNow>=0?"":"neg-t"}">${signed(savedNow)} €</b>${c.oneoff>0?`<small>с учётом разовых −${eur(c.oneoff)} €${c.ones.length?": "+esc(c.ones.slice(0,2).join(", ")):""}</small>`:""}</span>${svgI("chevR")}</button>`;
+  return h+`</section>`;
 }
 function syncBanner(){
   if(syncState==="auth")return `<button class="banner" data-act="settings" style="text-align:left">GitHub не принимает токен (истёк или отозван). Открой настройки и вставь новый. Записи пока сохраняются на телефоне.</button>`;
@@ -379,7 +379,7 @@ function renderOps(){
   else{let day=null,buf="",net=0;const flush=()=>{if(day){h+=`<section class="group"><p class="section-label"><span>${esc(dayLabel(parseD(day)))}</span>${net?`<span class="num">${net>0?"+":"−"}${nf2.format(Math.abs(net))} €</span>`:""}</p><div class="list">${buf}</div></section>`}};
     for(const o of ops){if(o.date!==day){flush();day=o.date;buf="";net=0}buf+=opRow(o);if(o.type==="income")net+=opEUR(o);else if(o.type==="expense")net-=opEUR(o)}flush()}
   h+=`</main>`;
-  after(()=>{bindCustomRange("ops");const qi=$("opsq");if(qi){qi.oninput=()=>{S.q=qi.value;clearTimeout(qi._t);qi._t=setTimeout(()=>{const pos=qi.selectionStart;render();const n=$("opsq");n.focus();try{n.setSelectionRange(pos,pos)}catch(e){}},250)}}});
+  after(()=>{bindCustomRange("ops");bindSwipe(document.querySelector("#app main"),"ops");slideIn("#app .group");const qi=$("opsq");if(qi){qi.oninput=()=>{S.q=qi.value;clearTimeout(qi._t);qi._t=setTimeout(()=>{const pos=qi.selectionStart;render();const n=$("opsq");n.focus();try{n.setSelectionRange(pos,pos)}catch(e){}},250)}}});
   return h;
 }
 function opRow(o){
@@ -399,6 +399,17 @@ function opRow(o){
     <div class="s">${sub}</div></div>
     <span class="amt num ${o.type==="income"?"pos-t":""}">${o.type==="income"?"+":"−"}${money(o.amount,acc.currency)}${acc.currency!=="EUR"?`<small>≈ ${nf2.format(opEUR(o))} €</small>`:""}</span></button>`;
 }
+// Horizontal swipe over a period view moves to the previous/next period, like the arrows.
+function bindSwipe(el,scope){
+  if(!el)return;let x0=null,y0=0,t0=0;
+  el.addEventListener("touchstart",e=>{if(e.touches.length!==1||e.target.closest(".ch-scroll,input,select,.hscroll")){x0=null;return}x0=e.touches[0].clientX;y0=e.touches[0].clientY;t0=Date.now()},{passive:true});
+  el.addEventListener("touchend",e=>{if(x0==null)return;const t=e.changedTouches[0],dx=t.clientX-x0,dy=t.clientY-y0;x0=null;
+    if(Math.abs(dx)<50||Math.abs(dx)<Math.abs(dy)*1.6||Date.now()-t0>800)return;
+    const P=scope==="ov"?UI.ov:UI.ops;if(P.period.kind==="custom")return;
+    const dir=dx<0?1:-1,np=shiftPeriod(P.period,dir);if(dir>0&&periodRange(np).start>todayMs())return;
+    P.period=np;UI.swipeDir=dir;render()},{passive:true});
+}
+function slideIn(sel){const d=UI.swipeDir;if(!d)return;UI.swipeDir=0;document.querySelectorAll(sel).forEach(n=>{n.animate([{transform:`translateX(${d*36}px)`,opacity:.3},{transform:"none",opacity:1}],{duration:220,easing:"cubic-bezier(.2,.8,.2,1)"})})}
 function bindCustomRange(scope){
   const f=$(scope+"-from"),t=$(scope+"-to");if(!f||!t)return;
   const S=scope==="ov"?UI.ov:UI.ops;
@@ -1059,7 +1070,8 @@ document.addEventListener("click",e=>{
     case "accpick":openAccPick(sc);break;
     case "ovtype":UI.ov.type=v;UI.ov.open=null;render();break;
     case "pkind":P.period={...P.period,kind:v,anchor:todayIso()};if(v==="custom"&&!P.period.from){P.period.from=iso(todayMs()-30*DAY);P.period.to=todayIso()}render();break;
-    case "pshift":P.period=shiftPeriod(P.period,+v);render();break;
+    case "pshift":P.period=shiftPeriod(P.period,+v);UI.swipeDir=+v;render();break;
+    case "budgettoggle":UI.budgetOpen=!UI.budgetOpen;render();break;
     case "ptoday":P.period={...P.period,anchor:todayIso()};render();break;
     case "ovopen":UI.ov.open=UI.ov.open===v?null:v;render();break;
     case "showcatops":UI.ops={...UI.ops,filter:UI.ov.type,period:{...UI.ov.period},accs:UI.ov.accs,cat:v,q:""};UI.tab="ops";window.scrollTo(0,0);render();break;
@@ -1082,6 +1094,8 @@ document.addEventListener("click",e=>{
     case "taglist":openTagList();break;
   }
 });
+document.addEventListener("change",e=>{const s=e.target.closest("[data-pk]");if(!s||s.closest(".sheet"))return;const P=s.dataset.pk==="ov"?UI.ov:UI.ops;
+  P.period={...P.period,kind:s.value,anchor:todayIso()};if(s.value==="custom"&&!P.period.from){P.period.from=iso(todayMs()-30*DAY);P.period.to=todayIso()}render()});
 $("fab").onclick=()=>UI.tab==="accounts"?openAccount(null):openOp(null);
 document.addEventListener("keydown",e=>{
   if(e.key==="Escape"&&stack.length){closeSheet();return}

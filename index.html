@@ -18,7 +18,7 @@
 /* Layout: iOS tab-bar app, one column on phones; from 900px a left rail and wider content. Tokens from the «Копилка iOS» design system. */
 :root{
   --surface:#F2F2F7; --surface-raised:#FFFFFF; --surface-sunken:#E6E6EB; --line:#D1D1D6;
-  --ink:#1C1C1E; --ink-muted:#6C6C72; --ink-faint:#AEAEB2; --hair:rgba(60,60,67,.18);
+  --ink:#1C1C1E; --ink-muted:#6C6C72; --ink-faint:#AEAEB2; --bud-d:#48484A; --bud-f:#AEAEB2; --hair:rgba(60,60,67,.18);
   --ai:#2F4A8A; --ai-soft:#E3E8F5; --on-ai:#FFFFFF;
   --shu:#C8442E; --shu-soft:#FBE7E3; --matsu:#2E7D4F; --matsu-soft:#E2F2E8; --kin:#B5761A;
   --series-1:#3D5DB5; --series-2:#B5761A; --inc:#3E9A6A; --exp:#D9A22E; --profit:#4F86D6; --loss:#D9603E;
@@ -33,7 +33,7 @@
 }
 @media (prefers-color-scheme: dark){:root{
   --surface:#000000; --surface-raised:#1C1C1E; --surface-sunken:#2C2C2E; --line:#38383A;
-  --ink:#F2F2F7; --ink-muted:#98989F; --ink-faint:#5A5A5F; --hair:rgba(84,84,88,.6);
+  --ink:#F2F2F7; --ink-muted:#98989F; --ink-faint:#5A5A5F; --bud-d:#D1D1D6; --bud-f:#7C7C80; --hair:rgba(84,84,88,.6);
   --ai:#8FA8F0; --ai-soft:#1A2340; --on-ai:#0B1020;
   --shu:#FF7A5C; --shu-soft:#3A1710; --matsu:#5FCB8A; --matsu-soft:#0F2A1A; --kin:#D9A24A;
   --series-1:#6D8CF0; --series-2:#B98226; --inc:#5FBF8A; --exp:#E0B04A; --profit:#7FA6F0; --loss:#F07E5C;
@@ -148,10 +148,16 @@ h1.title.sm{font-size:28px;line-height:34px;margin:0;letter-spacing:-.01em}
 .seg button{border-radius:8px;padding:7px 4px;min-height:32px;font-size:13px;line-height:18px;font-weight:500;color:var(--ink);white-space:nowrap}
 .seg button[aria-pressed="true"]{background:var(--surface-raised);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.12),0 0 0 .5px rgba(0,0,0,.04)}
 .seg button span{display:block;font-weight:400;color:var(--ink-muted);font-size:12px}
-.range{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px}
+.range{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;min-height:52px}
+.range.custom{justify-content:center}
+.rmid{flex:1;display:flex;flex-direction:column;align-items:center;gap:0;min-width:0}
+.pkind{position:relative;display:inline-flex;align-items:center;font-size:13px;line-height:18px;font-weight:600;color:var(--ai);padding:2px 8px;border-radius:8px;cursor:pointer}
+.pkind span{display:inline-flex;align-items:center;gap:2px}
+.pkind svg.i{width:14px;height:14px;stroke-width:2.6}
+.pkind select{position:absolute;inset:0;width:100%;height:100%;opacity:0;font-size:16px;cursor:pointer;-webkit-appearance:none;appearance:none}
 .range button.nav{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;color:var(--ai)}
 .range button.nav:disabled{color:var(--ink-faint)}
-.range .lbl{font-size:17px;line-height:22px;font-weight:600;text-align:center;flex:1}
+.range .lbl{font-size:17px;line-height:22px;font-weight:600;text-align:center}
 .custom-range{display:flex;gap:8px;align-items:center;justify-content:center;margin-top:8px;font-size:15px}
 .custom-range input{border:1px solid var(--line);border-radius:8px;background:var(--surface-raised);padding:6px 8px;font-size:16px}
 .acc-pick{display:flex;flex-direction:column;align-items:center;gap:0;margin:2px auto 0}
@@ -161,7 +167,9 @@ h1.title.sm{font-size:28px;line-height:34px;margin:0;letter-spacing:-.01em}
 .acc-pick .big small{font-size:22px;color:var(--ink-muted);font-weight:600;margin-left:4px}
 
 /* overview */
-.donut-wrap{position:relative;width:min(220px,62vw);margin:16px auto 4px}
+.ov-stats{display:flex;flex-direction:column}
+.ov-stats .range{margin-top:8px}
+.donut-wrap{position:relative;width:min(210px,58vw);margin:8px auto 0}
 .donut-wrap svg{display:block;width:100%;height:auto}
 .donut-c{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none}
 .donut-c b{font-family:var(--font-rounded);font-size:28px;line-height:34px;font-weight:700;letter-spacing:-.01em}
@@ -179,13 +187,17 @@ h1.title.sm{font-size:28px;line-height:34px;margin:0;letter-spacing:-.01em}
 .gtxt{font-size:13px;line-height:18px;color:var(--ink-muted)}
 .gtxt b{color:var(--ink);font-weight:600}
 /* weekly budget card */
-.budget .b-big{font-family:var(--font-rounded);font-size:40px;line-height:46px;font-weight:700;letter-spacing:-.02em;margin-top:4px}
-.budget .b-big{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
-.b-day{font-family:var(--font-sans);font-size:15px;line-height:20px;font-weight:600;letter-spacing:0;color:var(--ink-muted);background:var(--surface-sunken);border-radius:999px;padding:4px 10px;align-self:center}
-.budget .b-cap{font-size:15px;line-height:20px;color:var(--ink-muted)}
-.b-bar{display:flex;gap:2px;height:8px;border-radius:4px;background:var(--surface-sunken);overflow:hidden;margin:14px 0 4px}
+.b-head{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;text-align:left}
+.b-main{display:flex;align-items:center;gap:14px;min-width:0}
+.budget .b-big{flex:none;font-family:var(--font-rounded);font-size:34px;line-height:41px;font-weight:700;letter-spacing:-.02em}
+.b-chev{flex:none;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;background:var(--surface-sunken);color:var(--ink-muted);transition:transform .2s}
+.b-chev svg.i{width:18px;height:18px;stroke-width:2.4}
+.budget.open .b-chev{transform:rotate(180deg)}
+.b-day-unused{font-family:var(--font-sans);font-size:15px;line-height:20px;font-weight:600;letter-spacing:0;color:var(--ink-muted);background:var(--surface-sunken);border-radius:999px;padding:4px 10px;align-self:center}
+.budget .b-cap{font-size:13px;line-height:18px;color:var(--ink-muted);min-width:0}
+.b-bar{display:flex;gap:2px;height:6px;border-radius:3px;background:var(--surface-sunken);overflow:hidden;margin:12px 0 0}
 .b-bar i{display:block;height:100%}
-.b-bar .d,.dot.d{background:var(--ai)} .b-bar .f,.dot.f{background:var(--kin)}
+.b-bar .d,.dot.d{background:var(--bud-d)} .b-bar .f,.dot.f{background:var(--bud-f)}
 .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:1px}
 .budget .rows{margin-top:8px}
 .budget .r .k{font-size:15px;line-height:20px;color:var(--ink)}
