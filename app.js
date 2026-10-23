@@ -313,8 +313,10 @@ function ovMini(rows,sum,type,r){
   return `<button class="ov-mini" id="ovMini" data-act="ovtop" tabindex="-1" aria-hidden="true"><span class="mt"><span>${type==="expense"?"Расходы":"Доходы"} · ${esc(r.label)}</span><b class="num">${nf2.format(sum)} €</b></span><span class="mbar">${segs||"<i style=\"flex:1;background:var(--surface-sunken)\"></i>"}</span></button>`;
 }
 let ovScroll=null;
+let ovResize=null;
 function bindOvMini(){
   if(ovScroll){window.removeEventListener("scroll",ovScroll);window.removeEventListener("resize",ovScroll);ovScroll=null}
+  if(ovResize){window.removeEventListener("resize",ovResize);ovResize=null}
   const mini=$("ovMini"),st=document.querySelector(".sticky");if(!mini||!st)return;
   let raf=0;const bar=mini.querySelector(".mbar"),txt=mini.querySelector(".mt"),card=$("ovStats");
   const cl=(x,a,b)=>Math.max(a,Math.min(b,x));
@@ -326,6 +328,44 @@ function bindOvMini(){
   /* The whole stats card is squeezed against the header as it scrolls up: card and ring flatten together
      (ring → ellipse → line), the ring also widens to the bar's width, and everything lands on the bar's line,
      where the bar takes over and the card is gone. Driven by scroll position only, eased at both ends. */
+  /* Preferred path: the browser's own scroll-driven animations (Safari 26+). They run in step with the scroll on the
+     compositor, so nothing lags a frame behind the finger and nothing jitters. Keyframes are sampled from the same
+     curves as the JS fallback below. */
+  if(card&&window.CSS&&CSS.supports("animation-timeline: scroll()")){
+    const a=card.querySelector(".donut-wrap")||$("ovChart"),c=a&&a.querySelector(".donut-c"),ring=a&&(a.querySelector("svg")||a);
+    if(!a)return;
+    const h=a.offsetHeight,ringMid=docTop(a)+h/2,cardTop=docTop(card),o=ringMid-cardTop,H=card.offsetHeight;
+    const target=mini.getBoundingClientRect().top+bar.offsetTop+bar.offsetHeight/2;  // the bar line on screen (header is pinned)
+    const S1=ringMid-target,S0=S1-h*.85,ratio=bar.offsetWidth/a.offsetWidth;
+    if(S1<=0){/* page too short to collapse */}
+    const N=40;const K={card:[],ring:[],c:[],ctl:[],fol:[],mini:[],bar:[],txt:[]};
+    for(let i=0;i<=N;i++){const u=i/N,t=1-u,sy=t*t*(3-2*t),q=(i*100/N).toFixed(1)+"%";
+      const syc=Math.max(sy,.015),cardOp=cl((sy-.03)/.17,0,1),barOp=cl((.22-sy)/.19,0,1);
+      K.card.push(`${q}{transform:scaleY(${syc.toFixed(4)});opacity:${cardOp.toFixed(3)}}`);
+      K.ring.push(`${q}{transform:scaleX(${(1+(ratio-1)*Math.pow(1-sy,1.6)).toFixed(4)})}`);
+      K.c.push(`${q}{opacity:${cl((sy-.6)/.3,0,1).toFixed(3)}}`);
+      K.ctl.push(`${q}{opacity:${cl((sy-.5)/.35,0,1).toFixed(3)}}`);
+      K.fol.push(`${q}{transform:translateY(${(-(H-o)*(1-syc)).toFixed(2)}px)}`);
+      K.mini.push(`${q}{opacity:${barOp.toFixed(3)}}`);
+      K.bar.push(`${q}{transform:scaleY(${(.3+.7*barOp).toFixed(3)})}`);
+      K.txt.push(`${q}{transform:translateY(${((1-barOp)*5).toFixed(2)}px)}`)}
+    const tl=`linear both;animation-timeline:scroll(root block);animation-range:${Math.max(0,S0).toFixed(1)}px ${Math.max(1,S1).toFixed(1)}px`;
+    const css=Object.entries(K).map(([k,v])=>`@keyframes ov-${k}{${v.join("")}}`).join("")+
+      `#ovStats{transform-origin:50% ${o.toFixed(1)}px;animation:ov-card ${tl}}`+
+      `.ov-anim-ring{transform-origin:50% 50%;animation:ov-ring ${tl}}.ov-anim-c{animation:ov-c ${tl}}.ov-anim-ctl{animation:ov-ctl ${tl}}`+
+      `.ov-anim-fol{animation:ov-fol ${tl}}#ovMini{animation:ov-mini ${tl}}#ovMini .mbar{animation:ov-bar ${tl}}#ovMini .mt{animation:ov-txt ${tl}}`;
+    let tag=$("ovAnimCss");if(!tag){tag=document.createElement("style");tag.id="ovAnimCss";document.head.appendChild(tag)}tag.textContent=css;
+    ring.classList.add("ov-anim-ring");if(c)c.classList.add("ov-anim-c");
+    for(const el of card.children)if(el!==a&&!el.contains(a))el.classList.add("ov-anim-ctl");
+    for(const f of followers())f.classList.add("ov-anim-fol");
+    // only the tappability of the bar is left to JS; nothing visual depends on this listener
+    const upd2=()=>{raf=0;const on=scrollY>=S1-h*.85*.12;if(mini.classList.contains("on")!==on){mini.classList.toggle("on",on);mini.setAttribute("aria-hidden",String(!on));mini.tabIndex=on?0:-1}};
+    ovScroll=()=>{if(!raf)raf=requestAnimationFrame(upd2)};
+    const re=()=>{ovScroll&&window.removeEventListener("scroll",ovScroll);window.removeEventListener("resize",re);bindOvMini()};
+    window.addEventListener("scroll",ovScroll,{passive:true});window.addEventListener("resize",re,{passive:true});ovResize=re;upd2();
+    return;
+  }
+  const tagOld=$("ovAnimCss");if(tagOld)tagOld.textContent="";
   const upd=()=>{raf=0;const a=document.querySelector("#ovStats .donut-wrap")||$("ovChart");if(!a||!a.isConnected||!card)return;
     const c=a.querySelector(".donut-c");
     const h=a.offsetHeight,ringMid=docTop(a)+h/2,cardTop=docTop(card);
