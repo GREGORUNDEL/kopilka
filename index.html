@@ -183,20 +183,19 @@ h1.title.sm{font-size:28px;line-height:34px;margin:0;letter-spacing:-.01em}
 .ov-sum{text-align:center;font-size:15px;line-height:20px;color:var(--ink-muted);margin-top:4px}
 .ov-sum b{color:var(--ink);font-weight:600}
 .ov-stats .range{margin-top:8px}
-.donut-wrap{position:relative;width:min(210px,58vw);margin:8px auto 0;transform-origin:50% 100%;will-change:transform,opacity}
+.donut-wrap{position:relative;width:min(210px,58vw);margin:8px auto 0;transform-origin:50% 50%;will-change:transform,opacity}
 /* ring → bar: once the ring scrolls under the header, a slim stacked bar with the same colours slides out of the header */
 .ov-mini{position:absolute;left:0;right:0;top:100%;z-index:1;display:block;width:100%;text-align:left;border:0;color:inherit;font:inherit;
   background:var(--surface);padding:0 max(16px,env(safe-area-inset-right,0px)) 10px max(16px,env(safe-area-inset-left,0px));
-  opacity:0;transform:translateY(-10px);pointer-events:none;transition:opacity .22s ease,transform .26s cubic-bezier(.2,.8,.2,1)}
-.ov-mini.on{opacity:1;transform:none;pointer-events:auto}
+  opacity:0;pointer-events:none}
+.ov-mini.on{pointer-events:auto}
 .ov-mini::after{content:"";position:absolute;left:0;right:0;top:100%;height:20px;pointer-events:none;
   background:linear-gradient(to bottom,var(--surface),color-mix(in srgb,var(--surface) 0%,transparent))}
 .ov-mini .mt{display:flex;justify-content:space-between;align-items:baseline;gap:8px;max-width:640px;margin:0 auto 6px;font-size:13px;line-height:18px;color:var(--ink-muted)}
 .ov-mini .mt b{font-size:15px;line-height:20px;color:var(--ink);font-weight:600}
 .ov-mini .mbar{display:flex;gap:2px;height:8px;max-width:640px;margin:0 auto;border-radius:4px;overflow:hidden}
-.ov-mini .mbar i{display:block;min-width:2px;transform-origin:0 50%;transform:scaleX(0);transition:transform .35s cubic-bezier(.2,.8,.2,1) var(--d,0ms)}
-.ov-mini.on .mbar i{transform:none}
-@media (prefers-reduced-motion:reduce){.ov-mini,.ov-mini .mbar i{transition:none}}
+.ov-mini .mbar i{display:block;min-width:2px}
+.ov-mini .mbar,.ov-mini .mt{will-change:transform}
 .donut-wrap svg{display:block;width:100%;height:auto}
 .donut-c{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none}
 .donut-c b{font-family:var(--font-rounded);font-size:28px;line-height:34px;font-weight:700;letter-spacing:-.01em}
@@ -204,8 +203,11 @@ h1.title.sm{font-size:28px;line-height:34px;margin:0;letter-spacing:-.01em}
 .cat-row .bar{height:4px;border-radius:2px;background:var(--surface-sunken);margin-top:5px;overflow:hidden}
 .cat-row .bar i{display:block;height:100%;border-radius:2px}
 .cat-row .pct{flex:none;width:44px;text-align:right;font-size:15px;color:var(--ink-muted)}
-.cat-sub{padding:0 16px 12px 64px;display:flex;flex-direction:column;gap:6px;font-size:15px;line-height:20px}
-.cat-sub div{display:flex;justify-content:space-between;gap:8px;color:var(--ink-muted)}
+.cat-sub{padding:0 16px 8px 64px;display:flex;flex-direction:column;gap:0;font-size:15px;line-height:20px}
+.cat-sub .ctag{display:flex;align-items:center;gap:8px;width:100%;min-height:36px;padding:0;border:0;background:none;font:inherit;color:var(--ink-muted);text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.cat-sub .ctag span:first-child{flex:1;color:var(--ink)}
+.cat-sub .ctag svg.i{width:16px;height:16px;color:var(--ink-faint,var(--ink-muted));opacity:.6}
+.cat-sub .ctag:active{opacity:.55}
 .ov-grid{display:flex;flex-direction:column;gap:24px}
 /* goal progress under the total */
 .goal-line{display:flex;flex-direction:column;align-items:center;gap:6px;width:100%;max-width:340px;margin:2px auto 0;padding:2px 0}

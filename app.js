@@ -137,7 +137,7 @@ const UI=Object.assign({tab:"overview",budget:"mine",
   ov:{type:"expense",period:{kind:"week",anchor:todayIso()},accs:null,open:null},
   ops:{filter:"all",period:{kind:"week",anchor:todayIso()},accs:null,q:"",cat:null},
   ch:{mode:"total",group:"week",accs:null,sel:null},showAllWeeks:false},loadUI());
-UI.ov.period.anchor=todayIso();UI.ops.period.anchor=todayIso();UI.ops.cat=null;UI.ops.q="";UI.ov.open=null;UI.ch.sel=null;
+UI.ov.period.anchor=todayIso();UI.ops.period.anchor=todayIso();UI.ops.cat=null;UI.ops.tag=null;UI.ops.q="";UI.ov.open=null;UI.ch.sel=null;
 /* Every launch starts from the same view: Home tab, current week, all accounts, all categories (expenses on Home), income and expenses together on the chart. Budget, the bars/ring view and the hidden-balance switch stay remembered. */
 UI.ov.period={kind:"week",anchor:todayIso()};UI.ov.accs=null;UI.ov.type="expense";
 UI.ops.period={kind:"week",anchor:todayIso()};UI.ops.accs=null;UI.ops.filter="all";
@@ -296,8 +296,7 @@ function renderOverview(){
       const plan=x.c.plan>0&&p.kind==="month"?` · план ${eur(x.c.plan)} €`:"";
       let sub="";
       if(open){const tg=Object.entries(x.tags).sort((a,b)=>b[1]-a[1]);
-        sub=`<div class="cat-sub">${tg.map(([t,v])=>`<div><span>${t==="_none"?"без тега":esc((D.tags[t]||{}).name||"тег")}</span><span class="num">${nf2.format(v)} €</span></div>`).join("")}
-        <button class="btn small" style="margin-top:6px" data-act="showcatops" data-v="${esc(x.id)}">Показать операции</button></div>`}
+        sub=`<div class="cat-sub">${tg.map(([t,v])=>`<button class="ctag" data-act="showcatops" data-v="${esc(x.id)}" data-tag="${esc(t)}"><span>${t==="_none"?"без тега":esc((D.tags[t]||{}).name||"тег")}</span><span class="num">${nf2.format(v)} €</span>${svgI("chevR")}</button>`).join("")}</div>`}
       return `<button class="row cat-row" data-act="ovopen" data-v="${esc(x.id)}">${catIc(x.c)}<div class="mid"><div class="t">${esc(x.c.name)}</div><div class="s">${x.n} опер.${plan}</div>
         <div class="bar"><i style="width:${(x.v/max*100).toFixed(1)}%;background:${esc(x.c.color)}"></i></div></div>
         <span class="pct num">${nf0.format(pct)}%</span><span class="amt num">${nf2.format(x.v)} €</span></button>${sub}`}).join("")+`</div>`;
@@ -317,13 +316,21 @@ let ovScroll=null;
 function bindOvMini(){
   if(ovScroll){window.removeEventListener("scroll",ovScroll);ovScroll=null}
   const mini=$("ovMini"),st=document.querySelector(".sticky");if(!mini||!st)return;
-  let raf=0;
+  let raf=0;const bar=mini.querySelector(".mbar"),txt=mini.querySelector(".mt");
+  const cl=(x,a,b)=>Math.max(a,Math.min(b,x));
+  /* The ring is squeezed against the header as it scrolls up: it gets flatter and wider (ring → ellipse → line)
+     and lands exactly on the bar's line; there it hands over to the bar. Follows the finger, no timers. */
   const upd=()=>{raf=0;const a=document.querySelector("#ovStats .donut-wrap")||$("ovChart");if(!a||!a.isConnected)return;
-    const top=st.getBoundingClientRect().bottom,R=a.getBoundingClientRect();
-    // 0 while the ring is fully below the header, 1 once its middle has passed under it
-    const p=Math.max(0,Math.min(1,(top+24-R.top)/(R.height*.55)));
-    a.style.transform=p>0?`scale(${(1-.3*p).toFixed(3)})`:"";a.style.opacity=p>0?(1-.85*p).toFixed(3):"";
-    const on=p>=1;if(mini.classList.contains("on")!==on){mini.classList.toggle("on",on);mini.setAttribute("aria-hidden",String(!on));mini.tabIndex=on?0:-1}};
+    const c=a.querySelector(".donut-c");
+    a.style.transform="";const R=a.getBoundingClientRect(),B=bar.getBoundingClientRect();
+    const target=B.top+B.height/2,mid=R.top+R.height/2;
+    const sy=cl((mid-target)/(R.height/2),0,1);           // 1 = round, 0 = flat on the bar line
+    const k=1-sy,sx=1+(B.width/R.width-1)*k*k;            // widens towards the bar width near the end
+    const ringOp=cl((sy-.04)/.14,0,1),barOp=cl((.2-sy)/.16,0,1);
+    if(sy<1){a.style.transform=`scale(${sx.toFixed(3)},${Math.max(sy,.02).toFixed(3)})`;a.style.opacity=ringOp.toFixed(3)}else a.style.opacity="";
+    if(c)c.style.opacity=cl((sy-.55)/.3,0,1).toFixed(3);
+    mini.style.opacity=barOp.toFixed(3);bar.style.transform=`scaleY(${(.25+.75*barOp).toFixed(3)})`;txt.style.transform=`translateY(${((1-barOp)*6).toFixed(1)}px)`;
+    const on=barOp>.5;if(mini.classList.contains("on")!==on){mini.classList.toggle("on",on);mini.setAttribute("aria-hidden",String(!on));mini.tabIndex=on?0:-1}};
   ovScroll=()=>{if(!raf)raf=requestAnimationFrame(upd)};
   window.addEventListener("scroll",ovScroll,{passive:true});upd();
 }
@@ -382,11 +389,12 @@ function renderOps(){
   else if(S.filter==="income")ops=ops.filter(o=>o.type==="income");
   else if(S.filter==="transfer")ops=ops.filter(o=>o.type==="transfer"||o.type==="correction");
   if(S.cat)ops=ops.filter(o=>o.categoryId===S.cat);
+  if(S.cat&&S.tag)ops=ops.filter(o=>S.tag==="_none"?!(o.tagIds&&o.tagIds.length):(o.tagIds||[]).includes(S.tag));
   if(q)ops=ops.filter(o=>{const c=category(o.categoryId);const hay=[c&&c.name,o.comment,(account(o.accountId)||{}).name,...(o.tagIds||[]).map(t=>(D.tags[t]||{}).name)].join(" ").toLowerCase();return hay.includes(q)||String(o.amount).includes(q)});
   ops.sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:(b.createdAt||"").localeCompare(a.createdAt||""));
   const sumE=ops.filter(o=>o.type==="expense").reduce((a,o)=>a+opEUR(o),0),sumI=ops.filter(o=>o.type==="income").reduce((a,o)=>a+opEUR(o),0);
   let h=`<main class="wrap"><div class="sticky"><div class="sticky-in">`;
-  h+=`<div class="head"><div><h1 class="title sm">Операции</h1><div class="sub">${esc(sel?accLabel(sel):"Все счета")}${S.cat?" · "+esc((category(S.cat)||{}).name||""):""}</div></div><button class="icon-btn" data-act="accpick" data-scope="ops" aria-label="Выбор счетов">${svgI("wallet")}</button></div>`;
+  h+=`<div class="head"><div><h1 class="title sm">Операции</h1><div class="sub">${esc(sel?accLabel(sel):"Все счета")}${S.cat?" · "+esc((category(S.cat)||{}).name||"")+(S.tag?" · "+esc(S.tag==="_none"?"без тега":(D.tags[S.tag]||{}).name||""):""):""}</div></div><button class="icon-btn" data-act="accpick" data-scope="ops" aria-label="Выбор счетов">${svgI("wallet")}</button></div>`;
   h+=`<div class="searchbox">${svgI("search")}<input id="opsq" type="search" placeholder="Поиск: категория, тег, комментарий, сумма" value="${esc(S.q||"")}" autocomplete="off"></div>`;
   h+=`<div class="seg" role="group" aria-label="Тип">${[["all","Все"],["expense","Расходы"],["income","Доходы"],["transfer","Переводы"]].map(([k,l])=>`<button data-act="opsf" data-v="${k}" aria-pressed="${S.filter===k}">${l}</button>`).join("")}</div>`;
   h+=`<div>${periodControls("ops",p)}
@@ -1084,8 +1092,8 @@ document.addEventListener("click",e=>{
     case "budgettoggle":UI.budgetOpen=!UI.budgetOpen;render();break;
     case "ptoday":P.period={...P.period,anchor:todayIso()};render();break;
     case "ovopen":UI.ov.open=UI.ov.open===v?null:v;render();break;
-    case "showcatops":UI.ops={...UI.ops,filter:UI.ov.type,period:{...UI.ov.period},accs:UI.ov.accs,cat:v,q:""};UI.tab="ops";window.scrollTo(0,0);render();break;
-    case "clearcat":UI.ops.cat=null;render();break;
+    case "showcatops":UI.ops={...UI.ops,filter:UI.ov.type,period:{...UI.ov.period},accs:UI.ov.accs,cat:v,tag:el.dataset.tag||null,q:""};UI.tab="ops";window.scrollTo(0,0);render();break;
+    case "clearcat":UI.ops.cat=null;UI.ops.tag=null;render();break;
     case "opsf":UI.ops.filter=v;render();break;
     case "editop":openOp(v);break;
     case "edittransfer":openTransfer(v);break;
