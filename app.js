@@ -242,8 +242,8 @@ function render(){
   if(UI.tab==="charts")UI.tab="kopilka";
   renderTabs();
   const fn={overview:renderOverview,ops:renderOps,kopilka:renderKopilka,accounts:renderAccounts}[UI.tab]||renderOverview;
-  $("app").innerHTML=`<div class="page">${fn()}</div>`;
-  bindAfter();
+  $("app").innerHTML=`<div class="page" data-tab="${UI.tab}">${fn()}</div>`;
+  bindAfter();M.lastTab=UI.tab;M.expand=null;
   saveUI();
 }
 let afterFns=[];
@@ -276,8 +276,9 @@ function renderOverview(){
     const tg=(o.tagIds&&o.tagIds.length)?o.tagIds:["_none"];for(const t of tg){by[k].tags[t]=(by[k].tags[t]||0)+v}}
   const rows=Object.entries(by).map(([id,x])=>({id,...x,c:category(id)||{name:"Без категории",color:"#8E8E93",icon:"help-circle"}})).sort((a,b)=>b.v-a.v);
   const max=rows.length?rows[0].v:1;
+  const rk=[type,p.kind,r.start,(sel||[]).join(",")].join("|"),enter=M.lastTab!=="overview"||M.ringKey!==rk;M.ringKey=rk;
   let h=`<main class="wrap"><div class="sticky"><div class="sticky-in"><div class="ov-head"><button class="icon-btn" data-act="settings" aria-label="Настройки">${svgI("gear")}</button>
-    <button class="acc-pick tap" data-act="accpick" data-scope="ov" aria-label="${esc(accLabel(sel))}: выбрать счета"><span class="big num${UI.hideBal?" veil":""}">${UI.hideBal?"8 888,88":nf2.format(total)}<small>€</small></span>${sel?`<span class="acc-sel">${esc(accLabel(sel))} ${svgI("chevD")}</span>`:""}</button>${eyeBtn()}</div>${sel?"":goalLine()}</div></div>`;
+    <button class="acc-pick tap" data-act="accpick" data-scope="ov" aria-label="${esc(accLabel(sel))}: выбрать счета"><span class="big num${UI.hideBal?" veil":""}">${UI.hideBal?"8 888,88":`<span data-roll="total" data-v="${total.toFixed(2)}" data-fmt="nf2">${nf2.format(total)}</span>`}<small>€</small></span>${sel?`<span class="acc-sel">${esc(accLabel(sel))} ${svgI("chevD")}</span>`:""}</button>${eyeBtn()}</div>${sel?"":goalLine()}</div></div>`;
   h+=syncBanner();
   if(!getAuth()&&!accounts().length)h+=onboardCard();
   h+=`<div class="ov-grid"><div class="ov-col">`;
@@ -287,7 +288,7 @@ function renderOverview(){
   // donut
   const segs=rows.map(x=>({v:x.v,color:x.c.color}));
   if(bars)h+=`<div class="ov-sum"><b class="num">${nf2.format(sum)} €</b> ${type==="expense"?"расходы":"доходы"} · ${ops.length} опер.</div><div class="chart hs" id="ovChart"></div><div class="legend" id="ovLegend"></div></section>`;
-  else h+=`<div class="donut-wrap">${donut(segs)}<div class="donut-c"><b class="num">${nf2.format(sum)} €</b><span>${type==="expense"?"расходы":"доходы"} · ${ops.length} опер.</span></div></div></section>`;
+  else h+=`<div class="donut-wrap">${donut(segs,enter)}<div class="donut-c"><b class="num"><span data-roll="ring:${esc(rk)}" data-v="${sum.toFixed(2)}" data-fmt="nf2">${nf2.format(sum)}</span> €</b><span>${type==="expense"?"расходы":"доходы"} · ${ops.length} опер.</span></div></div></section>`;
   h+=budgetCard();
   h+=`</div><div class="ov-col">`;
   if(rows.length){
@@ -298,11 +299,11 @@ function renderOverview(){
       if(open){const tg=Object.entries(x.tags).sort((a,b)=>b[1]-a[1]);
         sub=`<div class="cat-sub">${tg.map(([t,v])=>`<button class="ctag" data-act="showcatops" data-v="${esc(x.id)}" data-tag="${esc(t)}"><span>${t==="_none"?"без тега":esc((D.tags[t]||{}).name||"тег")}</span><span class="num">${nf2.format(v)} €</span>${svgI("chevR")}</button>`).join("")}</div>`}
       return `<button class="row cat-row" data-act="ovopen" data-v="${esc(x.id)}">${catIc(x.c)}<div class="mid"><div class="t">${esc(x.c.name)}</div><div class="s">${x.n} опер.${plan}</div>
-        <div class="bar"><i style="width:${(x.v/max*100).toFixed(1)}%;background:${esc(x.c.color)}"></i></div></div>
+        <div class="bar"><i data-bar="cat:${esc(x.id)}" style="width:${(x.v/max*100).toFixed(1)}%;background:${esc(x.c.color)}"></i></div></div>
         <span class="pct num">${nf0.format(pct)}%</span><span class="amt num">${nf2.format(x.v)} €</span></button>${sub}`}).join("")+`</div>`;
   }else h+=`<div class="card empty"><b>Нет ${type==="expense"?"расходов":"доходов"} за период</b>Нажми «+», чтобы добавить.</div>`;
   h+=`</div></div></main>`;
-  after(()=>{bindCustomRange("ov");bindSwipe($("ovStats"),"ov");slideIn("#ovStats .donut-wrap,#ovCats");
+  after(()=>{bindCustomRange("ov");bindSwipe($("ovStats"),"ov");slideIn("#ovStats .donut-wrap,#ovCats");motionHome(enter);
     if(bars){const g=p.kind==="custom"?"week":p.kind,bs=chartData(g,type,sel),a=periodRange(p).start,idx=bs.findIndex(b=>a>=b.start&&a<b.end);
       drawChart(bs,{mode:type,group:g,sel:idx<0?null:idx},{box:$("ovChart"),legend:$("ovLegend"),first:true,focusSel:true,onPick:i=>{UI.ov.period={...UI.ov.period,kind:g,anchor:iso(bs[i].start)};render()}})}});
   return h;
@@ -311,7 +312,7 @@ const bl=s=>String(s).replace(/[+−-]?\d(?:[\d\u00a0\u202f]*\d)?(?:[.,]\d+)?/g,
 const eyeBtn=()=>`<button class="icon-btn" data-act="hidebal" aria-label="${UI.hideBal?"Показать баланс":"Скрыть баланс"}" aria-pressed="${!!UI.hideBal}">${svgI(UI.hideBal?"eyeOff":"eye")}</button>`;
 function goalLine(){
   const K=kNow();if(!K.m)return"";const g=K.m.budgets[UI.budget].KAI,p=Math.max(0,Math.min(1,g.progress));
-  return `<button class="goal-line" data-act="tab" data-v="kopilka" aria-label="Открыть Копилку"><span class="gbar${UI.hideBal?" veil":""}"><i style="width:${UI.hideBal?50:(p*100).toFixed(1)}%"></i></span>
+  return `<button class="goal-line" data-act="tab" data-v="kopilka" aria-label="Открыть Копилку"><span class="gbar${UI.hideBal?" veil":""}"><i data-bar="goal" style="width:${UI.hideBal?50:(p*100).toFixed(1)}%"></i></span>
     <span class="gtxt${UI.hideBal?" veil":""}">${UI.hideBal?"<b class=\"num\">88%</b> цели KAI · ещё 88 888 € · прогноз +8 888":`<b class="num">${nf0.format(g.progress*100)}%</b> цели KAI · ещё ${eur(Math.max(0,g.goal-K.m.bal))} € · прогноз <span class="${g.fc>=0?"pos-t":"neg-t"}">${signed(g.fc)}</span>`}</span></button>`;
 }
 function budgetCard(){
@@ -321,9 +322,9 @@ function budgetCard(){
   const row=(k,v,cls,small)=>`<div class="r"><span class="k">${k}${small?`<small>${small}</small>`:""}</span><span class="v num ${cls||""}">${v}</span></div>`;
   const open=!!UI.budgetOpen;
   let h=`<section class="card budget ${open?"open":""}"><button class="b-head" data-act="budgettoggle" aria-expanded="${open}">
-    <span class="b-main"><span class="b-big num ${neg?"neg-t":""}">${eur(Math.abs(B.left))} €</span><span class="b-cap">${neg?"перерасход недели":"можно потратить"}<br>${head}${!neg&&B.daysLeft>1?` · ≈ ${eur(B.left/B.daysLeft)} €/день`:""}</span></span>
+    <span class="b-main"><span class="b-big num ${neg?"neg-t":""}"><span data-roll="left" data-v="${Math.abs(B.left).toFixed(2)}" data-fmt="eur">${eur(Math.abs(B.left))}</span> €</span><span class="b-cap">${neg?"перерасход недели":"можно потратить"}<br>${head}${!neg&&B.daysLeft>1?` · ≈ ${eur(B.left/B.daysLeft)} €/день`:""}</span></span>
     <span class="b-chev">${svgI("chevD")}</span></button>
-    <div class="b-bar" role="img" aria-label="Потрачено ${eur(B.spent)} из ${eur(B.life)} €"><i class="d" style="width:${dW.toFixed(1)}%"></i><i class="f" style="width:${fW.toFixed(1)}%"></i></div>
+    <div class="b-bar" role="img" aria-label="Потрачено ${eur(B.spent)} из ${eur(B.life)} €"><i class="d" data-bar="bd" style="width:${dW.toFixed(1)}%"></i><i class="f" data-bar="bf" style="width:${fW.toFixed(1)}%"></i></div>
     <div class="rows" ${open?"":"hidden"}>`;
   h+=row(B.arrived?"Доход за неделю":"Доход, ожидается",(B.arrived?"+":"≈ +")+eur(B.expInc),"pos-t",B.arrived?"":`зарплаты ещё нет · обычно ${eur(B.avgInc)} €`);
   if(B.need)h+=row("Отложить по норме KAI","−"+eur(B.need));
@@ -345,14 +346,63 @@ function onboardCard(){return `<section class="card" style="display:flex;flex-di
   <p class="sub" style="margin:0">Данные хранятся на устройстве и в приватном репозитории <b>kopilka-data</b>. Без сети всё работает, синхронизация пройдёт сама.</p>
   <button class="btn" data-act="syncsheet">Вставить токен</button></section>`}
 function catIc(c,cls){return `<span class="ic ${cls||""}" style="background:${esc(c.color||"#8E8E93")}">${icon(c.icon)}</span>`}
-function donut(segs){
-  const R=50,C=2*Math.PI*R,total=segs.reduce((a,s)=>a+s.v,0);
-  let s=`<svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="${R}" fill="none" stroke="var(--surface-sunken)" stroke-width="18"/>`;
-  if(total>0){let off=0;const gap=segs.length>1?2:0;
-    for(const g of segs){const len=g.v/total*C;const l=Math.max(0,len-gap);
-      s+=`<circle cx="60" cy="60" r="${R}" fill="none" stroke="${esc(g.color)}" stroke-width="18" stroke-dasharray="${l.toFixed(2)} ${(C-l).toFixed(2)}" stroke-dashoffset="${(-off).toFixed(2)}" transform="rotate(-90 60 60)"/>`;off+=len}}
+/* Ring of category segments. Each segment is a filled ring sector whose outline is stroked in the same colour with
+   round joins: that rounds its four corners by RND/2 (the sector is shrunk by the same amount, so sizes stay true).
+   The gap between segments has parallel edges. sweep: a track-coloured cover is drawn over the segments and
+   uncovers them clockwise from the top. */
+function donut(segs,sweep){
+  const R=50,W=18,C=2*Math.PI*R,total=segs.reduce((a,s)=>a+s.v,0),ro=R+W/2,ri=R-W/2,GAP=2.2,RND=5;
+  const pt=(r,a)=>`${(60+r*Math.sin(a)).toFixed(3)} ${(60-r*Math.cos(a)).toFixed(3)}`;
+  let s=`<svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="${R}" fill="none" stroke="var(--surface-sunken)" stroke-width="${W}"/>`;
+  const live=segs.filter(g=>g.v>0);
+  if(total>0&&live.length===1)s+=`<circle cx="60" cy="60" r="${R}" fill="none" stroke="${esc(live[0].color)}" stroke-width="${W}"/>`;
+  else if(total>0){let a0=0;
+    for(const g of live){const da=g.v/total*2*Math.PI,a1=a0+da,avail=da*R-GAP;
+      const w=Math.max(0,Math.min(RND,avail-.6)),h=w/2,d=GAP/2+h,o=ro-h,i=ri+h;
+      // angles of the four corners, offset so the gap edges stay parallel
+      const so=a0+Math.asin(Math.min(1,d/o)),eo=a1-Math.asin(Math.min(1,d/o)),si=a0+Math.asin(Math.min(1,d/i)),ei=a1-Math.asin(Math.min(1,d/i));
+      if(eo>so&&ei>si){const lo=eo-so>Math.PI?1:0,li=ei-si>Math.PI?1:0;
+        s+=`<path d="M${pt(o,so)}A${o} ${o} 0 ${lo} 1 ${pt(o,eo)}L${pt(i,ei)}A${i} ${i} 0 ${li} 0 ${pt(i,si)}Z" fill="${esc(g.color)}" stroke="${esc(g.color)}" stroke-width="${w.toFixed(2)}" stroke-linejoin="round"/>`}
+      else{const m=(a0+a1)/2,hw=Math.max(.3,(avail)/2)/R; // a sliver too small to round
+        s+=`<path d="M${pt(ro,m-hw)}A${ro} ${ro} 0 0 1 ${pt(ro,m+hw)}L${pt(ri,m+hw)}A${ri} ${ri} 0 0 0 ${pt(ri,m-hw)}Z" fill="${esc(g.color)}"/>`}
+      a0=a1}}
+  if(sweep&&total>0&&!reduceMotion())s+=`<circle class="ring-cover" cx="60" cy="60" r="${R}" fill="none" stroke="var(--surface-sunken)" stroke-width="${W+1.5}" stroke-dasharray="${C.toFixed(2)} ${C.toFixed(2)}" transform="rotate(-90 60 60)" style="animation-delay:${splashLeft()}ms"/>`;
   return s+`</svg>`;
 }
+/* ================= motion ================= */
+/* One vocabulary for the whole app: short durations, the iOS-like ease-out, transform/opacity/size only,
+   triggered by taps and data changes, never by scrolling. Everything is skipped with Reduce Motion on. */
+const EASE="cubic-bezier(.2,.8,.2,1)";
+const reduceMotion=()=>{try{return matchMedia("(prefers-reduced-motion: reduce)").matches}catch(e){return false}};
+// time until the launch splash starts fading (its CSS fade begins 1.05 s after load); 0 once it is gone
+const splashLeft=()=>{const sp=document.getElementById("splash");if(!sp||!sp.getAnimations)return 0;
+  const an=sp.getAnimations().find(x=>x.animationName==="splash-out");if(!an||an.playState==="finished")return 0;
+  return Math.max(0,Math.round(1050-(an.currentTime||0)+120))};
+const M={vals:{},bars:{},ringKey:null,lastTab:null,expand:null};
+const FMT={nf2:v=>nf2.format(v),eur:v=>eur(v)};
+document.addEventListener("touchstart",()=>{},{passive:true}); // lets iOS Safari show :active press states
+function rollNum(el,from,to,fmt,dur){const t0=performance.now();
+  const step=t=>{if(!el.isConnected)return;const k=Math.min(1,(t-t0)/dur),e=1-Math.pow(1-k,3);el.textContent=fmt(from+(to-from)*e);if(k<1)requestAnimationFrame(step)};
+  requestAnimationFrame(step)}
+function motionHome(enter){
+  const rm=reduceMotion(),delay=enter?splashLeft():0;
+  // numbers count from their previous value to the new one
+  document.querySelectorAll("[data-roll]").forEach(el=>{const k=el.dataset.roll.split(":")[0],v=+el.dataset.v,prev=M.vals[k],fmt=FMT[el.dataset.fmt]||FMT.nf2;
+    M.vals[k]=v;if(rm||prev==null||Math.abs(prev-v)<.005)return;el.textContent=fmt(prev);rollNum(el,prev,v,fmt,520)});
+  // bars grow from their previous width; on entering the screen, from zero, one after another
+  let n=0;document.querySelectorAll("[data-bar]").forEach(el=>{const k=el.dataset.bar,to=el.style.width,from=enter?"0%":M.bars[k];M.bars[k]=to;
+    if(rm||from==null||from===to)return;el.animate([{width:from},{width:to}],{duration:enter?650:420,delay:delay+(enter&&k.startsWith("cat:")?120+Math.min(n++,8)*40:0),easing:EASE,fill:"backwards"})});
+  // opening a card or a category: its content unfolds
+  if(M.expand&&!rm){const box=M.expand==="budget"?document.querySelector(".budget"):null;
+    if(box){unfold(box.querySelectorAll(".rows,.b-foot"));const ch=box.querySelector(".b-chev");ch&&ch.animate([{transform:"rotate(0deg)"},{transform:"rotate(180deg)"}],{duration:280,easing:EASE})}
+    else{const row=document.querySelector(`.cat-row[data-v="${CSS.escape(M.expand.slice(4))}"]`),sub=row&&row.nextElementSibling;if(sub&&sub.classList.contains("cat-sub"))unfold([sub])}}
+}
+function unfold(els){els.forEach(el=>{const cs=getComputedStyle(el),h=el.offsetHeight,mt=cs.marginTop;
+  el.animate([{height:"0px",marginTop:"0px",opacity:0,overflow:"hidden"},{height:h+"px",marginTop:mt,opacity:1,overflow:"hidden"}],{duration:300,easing:EASE})})}
+function fold(els,done){const a=[...els].filter(Boolean);if(!a.length||reduceMotion()){done();return}
+  let left=a.length;a.forEach(el=>{const h=el.offsetHeight,mt=getComputedStyle(el).marginTop;
+    const an=el.animate([{height:h+"px",marginTop:mt,opacity:1,overflow:"hidden"},{height:"0px",marginTop:"0px",opacity:0,overflow:"hidden"}],{duration:240,easing:EASE,fill:"forwards"});
+    an.onfinish=()=>{if(--left===0)done()}})}
 /* ================= OPERATIONS ================= */
 function renderOps(){
   const S=UI.ops,p=S.period,r=periodRange(p);const sel=S.accs&&S.accs.length?S.accs:null;
@@ -1062,9 +1112,14 @@ document.addEventListener("click",e=>{
     case "ovtype":UI.ov.type=v;UI.ov.open=null;render();break;
     case "pkind":P.period={...P.period,kind:v,anchor:todayIso()};if(v==="custom"&&!P.period.from){P.period.from=iso(todayMs()-30*DAY);P.period.to=todayIso()}render();break;
     case "pshift":P.period=shiftPeriod(P.period,+v);UI.swipeDir=+v;render();break;
-    case "budgettoggle":UI.budgetOpen=!UI.budgetOpen;render();break;
+    case "budgettoggle":{const box=el.closest(".budget");
+      if(UI.budgetOpen&&box){const ch=box.querySelector(".b-chev");ch&&!reduceMotion()&&ch.animate([{transform:"rotate(180deg)"},{transform:"rotate(0deg)"}],{duration:240,easing:EASE,fill:"forwards"});
+        fold(box.querySelectorAll(".rows,.b-foot"),()=>{UI.budgetOpen=false;render()})}
+      else{UI.budgetOpen=true;render();M.expand="budget";motionHome(false)}break}
     case "ptoday":P.period={...P.period,anchor:todayIso()};render();break;
-    case "ovopen":UI.ov.open=UI.ov.open===v?null:v;render();break;
+    case "ovopen":{const sub=el.nextElementSibling;
+      if(UI.ov.open===v&&sub&&sub.classList.contains("cat-sub"))fold([sub],()=>{UI.ov.open=null;render()});
+      else{UI.ov.open=v;render();M.expand="cat:"+v;motionHome(false)}break}
     case "showcatops":UI.ops={...UI.ops,filter:UI.ov.type,period:{...UI.ov.period},accs:UI.ov.accs,cat:v,tag:el.dataset.tag||null,q:""};UI.tab="ops";window.scrollTo(0,0);render();break;
     case "clearcat":UI.ops.cat=null;UI.ops.tag=null;render();break;
     case "opsf":UI.ops.filter=v;render();break;

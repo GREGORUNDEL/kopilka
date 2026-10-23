@@ -188,8 +188,16 @@ h1.title.sm{font-size:28px;line-height:34px;margin:0;letter-spacing:-.01em}
 .donut-c{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none}
 .donut-c b{font-family:var(--font-rounded);font-size:28px;line-height:34px;font-weight:700;letter-spacing:-.01em}
 .donut-c span{font-size:13px;line-height:18px;color:var(--ink-muted)}
+.donut-c b [data-roll]{font:inherit;color:inherit}
 .cat-row .bar{height:4px;border-radius:2px;background:var(--surface-sunken);margin-top:5px;overflow:hidden}
 .cat-row .bar i{display:block;height:100%;border-radius:2px}
+/* motion: ring sweep, press feedback (Home for now) */
+.ring-cover{stroke-dashoffset:0;animation:ring-sweep .75s cubic-bezier(.3,.7,.2,1) forwards}
+@keyframes ring-sweep{to{stroke-dashoffset:-314.16px;visibility:hidden}}
+[data-tab=overview] :is(.row,.b-head,.goal-line,.ctag,.icon-btn,.seg button,.acc-pick.tap),#fab{transition:transform .18s cubic-bezier(.2,.8,.2,1),opacity .18s}
+[data-tab=overview] :is(.row,.b-head,.ctag):active{transform:scale(.985)}
+[data-tab=overview] :is(.icon-btn,.seg button):active,#fab:active{transform:scale(.92)}
+@media (prefers-reduced-motion:reduce){.ring-cover{display:none}[data-tab=overview] :is(.row,.b-head,.goal-line,.ctag,.icon-btn,.seg button,.acc-pick.tap):active,#fab:active{transform:none}}
 .cat-row .pct{flex:none;width:44px;text-align:right;font-size:15px;color:var(--ink-muted)}
 .cat-sub{padding:0 16px 8px 64px;display:flex;flex-direction:column;gap:0;font-size:15px;line-height:20px}
 .cat-sub .ctag{display:flex;align-items:center;gap:8px;width:100%;min-height:36px;padding:0;border:0;background:none;font:inherit;color:var(--ink-muted);text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent}
