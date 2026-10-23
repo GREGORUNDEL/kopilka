@@ -197,12 +197,13 @@ h1.title.sm{font-size:28px;line-height:34px;margin:0;letter-spacing:-.01em}
 .gtxt b{color:var(--ink);font-weight:600}
 .veil{filter:blur(9px);-webkit-user-select:none;user-select:none;pointer-events:none}
 .acc-pick .big.veil{filter:blur(14px)}
-/* hidden balance: one switch (body.hide-bal) blurs every figure that shows or reveals a balance, on every tab and in sheets */
-.hide-bal .acc-pick .big,.hide-bal #kHero .big,.hide-bal #kHero .stat:first-child,.hide-bal #kSchools .school-top,.hide-bal #kSchools .rows,
-.hide-bal #kChanges .changes,.hide-bal #kWeeks .row .s,.hide-bal #kWeeks .row .amt,.hide-bal #kPathC .cap,.hide-bal #kPathC .chart,
-.hide-bal .row[data-act="editacc"] .amt,.hide-bal .row[data-a] .amt,.hide-bal .opt small.num,.hide-bal #abal:not(:focus)
+/* hidden balance: one switch (body.hide-bal) blurs only the figures themselves (.vn / amounts), never labels or names */
+.hide-bal .acc-pick .big,.hide-bal #kHero .big,.hide-bal #kHero .stat:first-child .v,.hide-bal #kSchools .v,.hide-bal #kSchools .pill,
+.hide-bal .vn,.hide-bal #kWeeks .row .amt,.hide-bal .row[data-act="editacc"] .amt,.hide-bal .row[data-a] .amt,.hide-bal .opt small.num,.hide-bal #abal:not(:focus)
 {filter:blur(9px);-webkit-user-select:none;user-select:none}
 .hide-bal .acc-pick .big{filter:blur(14px)}
+.hide-bal svg .vn{filter:url(#vblur)}
+.hide-bal .opt small.num,.hide-bal .vn{filter:blur(6px)}
 /* weekly budget card */
 .b-head{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;text-align:left}
 .b-main{display:flex;align-items:center;gap:14px;min-width:0}
@@ -424,6 +425,7 @@ h1.title.sm{font-size:28px;line-height:34px;margin:0;letter-spacing:-.01em}
 </style>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><filter id="vblur" x="-30%" y="-80%" width="160%" height="260%"><feGaussianBlur stdDeviation="4"/></filter></svg>
 <div id="vh" aria-hidden="true" style="position:fixed;inset:0;visibility:hidden;pointer-events:none;z-index:-1"></div>
 <div id="app"></div>
 <nav class="tabbar" aria-label="Разделы"><div class="tabbar-in" id="tabs"></div></nav>

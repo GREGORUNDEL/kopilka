@@ -307,6 +307,7 @@ function renderOverview(){
       drawChart(bs,{mode:type,group:g,sel:idx<0?null:idx},{box:$("ovChart"),legend:$("ovLegend"),first:true,focusSel:true,onPick:i=>{UI.ov.period={...UI.ov.period,kind:g,anchor:iso(bs[i].start)};render()}})}});
   return h;
 }
+const bl=s=>String(s).replace(/[+−-]?\d(?:[\d\u00a0\u202f]*\d)?(?:[.,]\d+)?/g,m=>`<span class="vn">${m}</span>`);
 const eyeBtn=()=>`<button class="icon-btn" data-act="hidebal" aria-label="${UI.hideBal?"Показать баланс":"Скрыть баланс"}" aria-pressed="${!!UI.hideBal}">${svgI(UI.hideBal?"eyeOff":"eye")}</button>`;
 function goalLine(){
   const K=kNow();if(!K.m)return"";const g=K.m.budgets[UI.budget].KAI,p=Math.max(0,Math.min(1,g.progress));
@@ -428,8 +429,8 @@ function renderKopilka(){
   h+=`<div class="seg" id="kSeg" role="group" aria-label="Бюджет жизни"><button data-act="budget" data-v="mine" aria-pressed="${UI.budget==="mine"}">Мой бюджет<span>¥${nf0.format(c.mine)}/мес</span></button><button data-act="budget" data-v="comfort" aria-pressed="${UI.budget==="comfort"}">Комфорт<span>¥${nf0.format(c.comfort)}/мес</span></button></div>`;
   h+=`<section class="schools" id="kSchools">`+["SNG","KAI"].map((s,i)=>{const x=b[s],col=i?"var(--series-2)":"var(--series-1)",C=2*Math.PI*22,p=Math.max(0,Math.min(1,x.progress));
     return `<article class="card school"><div class="school-top"><svg class="ring" viewBox="0 0 52 52" role="img" aria-label="${s}: ${nf1.format(x.progress*100)}%"><circle class="track" cx="26" cy="26" r="22"/>
-      <circle class="fill" cx="26" cy="26" r="22" stroke="${col}" stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${(C*(1-p)).toFixed(1)}"/><text x="26" y="27">${nf0.format(x.progress*100)}%</text></svg>
-      <div style="min-width:0"><h3><span class="dot" style="background:${col}"></span>${s}</h3><div class="goal num">цель ${eur(x.goal)} €</div></div></div>
+      <circle class="fill" cx="26" cy="26" r="22" stroke="${col}" stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${(C*(1-p)).toFixed(1)}"/><text class="vn" x="26" y="27">${nf0.format(x.progress*100)}%</text></svg>
+      <div style="min-width:0"><h3><span class="dot" style="background:${col}"></span>${s}</h3><div class="goal">цель <span class="vn num">${eur(x.goal)} €</span></div></div></div>
       <div class="rows"><div class="r"><span class="k">Нужно в нед.</span><span class="v num">${eur(x.need)}</span></div>
       <div class="r"><span class="k">Прогноз</span><span class="pill num ${x.fc>=0?"pos":"neg"}">${signed(x.fc)}</span></div>
       <div class="r"><span class="k">+ отпускные</span><span class="v num ${x.fcH>=0?"pos-t":"neg-t"}">${signed(x.fcH)}</span></div></div></article>`}).join("")+`</section>`;
@@ -456,7 +457,7 @@ function kChanges(ws,m,cr){
   if(ws.length<2)return'<div class="empty">Появится после второй недели.</div>';
   const c=kcfg(),prevW=ws.slice(0,-1),pr=cr.manual?cr:rateAt(iso(parseD(prevW[prevW.length-1].monday)+6*DAY));
   const pm=kMetrics(prevW,pr?pr.rate:cr.rate,c),cur=m.budgets[UI.budget],old=pm.budgets[UI.budget],last=ws[ws.length-1];
-  const row=(k,v,cls)=>`<div class="r"><span class="k">${k}</span><span class="v num ${cls||""}">${v}</span></div>`;
+  const row=(k,v,cls)=>`<div class="r"><span class="k">${k}</span><span class="v num ${cls||""}">${bl(v)}</span></div>`;
   const d=(x,y)=>({t:signed(x-y),c:x-y>=0?"pos-t":"neg-t"});
   const dp=d(m.pace,pm.pace),dS=d(cur.SNG.fc,old.SNG.fc),dK=d(cur.KAI.fc,old.KAI.fc),gd=cur.KAI.goal-old.KAI.goal,lr=reg(last);
   let h=row("Неделя",signed(last.saved)+" € · норма KAI "+eur(cur.KAI.need),hasX(last)?"":(last.saved>=cur.KAI.need?"pos-t":"neg-t"));
@@ -473,7 +474,7 @@ function kWeekList(ws){
   return lim.map(w=>{const t=parseD(w.monday);
     const sub=(typeof w.balance==="number"?"остаток "+eur(w.balance)+" €":"")+((w.oneoff||0)>0?" · разовые −"+eur(w.oneoff):"")+((w.income||0)>0?" · доход +"+eur(w.income):"")+(w.computed?"":" · вручную");
     return `<button class="row" ${w.computed?`data-act="weekops" data-v="${esc(w.monday)}"`:'tabindex="-1" style="cursor:default"'}>
-      <div class="mid"><div class="t">${dm(t)}–${dmy(t+6*DAY)}</div><div class="s">${sub}</div></div><span class="amt num ${w.saved<0?"neg-t":""}">${signed(w.saved)}</span></button>`}).join("")
+      <div class="mid"><div class="t">${dm(t)}–${dmy(t+6*DAY)}</div><div class="s">${bl(sub)}</div></div><span class="amt num ${w.saved<0?"neg-t":""}">${signed(w.saved)}</span></button>`}).join("")
     +(all.length>6?`<button class="row" data-act="allweeks" style="color:var(--ai)"><div class="mid">${UI.showAllWeeks?"Свернуть":"Все недели ("+all.length+")"}</div></button>`:"");
 }
 
@@ -502,11 +503,11 @@ function kPath(ws,m){
   const t0=pts[0].t,t1=parseD(c.deadline),endV=m.bal+m.pace*m.left,yMax=Math.max(g.KAI.goal,g.SNG.goal,endV)*1.06;
   const X=t=>L0+(t-t0)/(t1-t0||1)*(W-L0-R),Y=v=>T+(1-v/yMax)*(H-T-B);
   let s="";
-  for(const v of niceTicks(0,yMax,4))s+=`<line class="grid" x1="${L0}" x2="${W-R}" y1="${Y(v)}" y2="${Y(v)}"/><text class="axis" x="${L0-6}" y="${Y(v)+4}" text-anchor="end">${kfmt(v)}</text>`;
+  for(const v of niceTicks(0,yMax,4))s+=`<line class="grid" x1="${L0}" x2="${W-R}" y1="${Y(v)}" y2="${Y(v)}"/><text class="axis vn" x="${L0-6}" y="${Y(v)+4}" text-anchor="end">${kfmt(v)}</text>`;
   for(let y=new Date(t0).getUTCFullYear()+1;Date.UTC(y,0,1)<=t1;y++){const t=Date.UTC(y,0,1),x=X(t);s+=`<line class="grid" x1="${x}" x2="${x}" y1="${T}" y2="${H-B}" stroke-dasharray="2 3"/>`;if(x-L0>34&&W-R-x>34)s+=`<text class="axis" x="${x}" y="${H-6}" text-anchor="middle">${y}</text>`}
   s+=`<text class="axis" x="${L0}" y="${H-6}">${dm(t0)}</text><text class="axis" x="${W-R}" y="${H-6}" text-anchor="end">${dm(t1)}</text>`;
   const goals=[["SNG",g.SNG.goal,"var(--series-1)"],["KAI",g.KAI.goal,"var(--series-2)"]],gy=goals.map(x=>Y(x[1]));let ly=gy.slice();if(Math.abs(ly[0]-ly[1])<13){const mid=(ly[0]+ly[1])/2;ly=ly[0]>ly[1]?[mid+7,mid-7]:[mid-7,mid+7]}
-  goals.forEach((x,i)=>{s+=`<line x1="${L0}" x2="${W-R}" y1="${gy[i]}" y2="${gy[i]}" stroke="${x[2]}" stroke-width="2"/><text class="lbl" x="${W-R+5}" y="${ly[i]+4}" fill="${x[2]}">${x[0]} ${kfmt(x[1])}</text>`});
+  goals.forEach((x,i)=>{s+=`<line x1="${L0}" x2="${W-R}" y1="${gy[i]}" y2="${gy[i]}" stroke="${x[2]}" stroke-width="2"/><text class="lbl vn" x="${W-R+5}" y="${ly[i]+4}" fill="${x[2]}">${x[0]} ${kfmt(x[1])}</text>`});
   const line=pts.map((p,i)=>(i?"L":"M")+X(p.t).toFixed(1)+" "+Y(p.v).toFixed(1)).join(" ");
   s+=`<path d="${line} L${X(pts[pts.length-1].t).toFixed(1)} ${Y(0)} L${X(t0).toFixed(1)} ${Y(0)} Z" fill="var(--ai)" opacity=".12"/>`;
   const lp=pts[pts.length-1];
@@ -514,7 +515,7 @@ function kPath(ws,m){
   s+=`<circle cx="${X(lp.t)}" cy="${Y(lp.v)}" r="4.5" fill="var(--ai)" stroke="var(--surface-raised)" stroke-width="2"/><circle cx="${X(t1)}" cy="${Y(endV)}" r="4" fill="var(--surface-raised)" stroke="var(--ink)" stroke-width="2"/>`;
   s+=`<line class="cross" y1="${T}" y2="${H-B}" stroke="var(--ink-muted)" stroke-width="1" style="display:none"/><circle class="mark" r="5" fill="var(--ai)" stroke="var(--surface-raised)" stroke-width="2" style="display:none"/>`;
   $("pathChart").innerHTML=svgEl(W,H,s);
-  $("pathCap").textContent="Прогноз к "+dmy(t1)+": "+eur(endV)+" € при темпе "+eur(m.pace)+" €/нед, без новых разовых трат"+(m.oneoffs>0?" · разовые за всё время "+eur(m.oneoffs)+" €":"");
+  $("pathCap").innerHTML="Прогноз к "+dmy(t1)+": "+bl(eur(endV))+" € при темпе "+bl(eur(m.pace))+" €/нед, без новых разовых трат"+(m.oneoffs>0?" · разовые за всё время "+bl(eur(m.oneoffs))+" €":"");
   $("pathLegend").innerHTML=`<span><i class="line" style="background:var(--ai)"></i>накоплено</span><span><i class="dash"></i>прогноз</span><span><i class="line" style="background:var(--series-1)"></i>цель SNG</span><span><i class="line" style="background:var(--series-2)"></i>цель KAI</span>`;
   const tp=pts.map(p=>({x:X(p.t),y:Y(p.v),p}));tp.push({x:X(t1),y:Y(endV),fc:true});
   attachTip($("pathChart"),tp,q=>q.fc?`прогноз ${dmy(t1)}<br><b>${eur(endV)} €</b>`:`${dm(q.p.t-6*DAY)}–${dm(q.p.t)}<br><b>${eur(q.p.v)} €</b>`);
