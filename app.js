@@ -669,6 +669,9 @@ function openAccPick(scope){
 
 /* ---- add / edit operation ---- */
 function catUsage(type){const cnt={},cut=iso(todayMs()-120*DAY);for(const o of opsList()){if(o.type!==type||!o.categoryId)continue;cnt[o.categoryId]=(cnt[o.categoryId]||0)+(o.date>=cut?3:1)}return cnt}
+/* tags used with this category in history float to the front (recent uses weigh more); nothing gets selected */
+function tagUsage(catId,type){const cnt={};if(!catId)return cnt;const cut=iso(todayMs()-120*DAY);
+  for(const o of opsList()){if(o.type!==type||o.categoryId!==catId)continue;for(const t of o.tagIds||[])cnt[t]=(cnt[t]||0)+(o.date>=cut?3:1)}return cnt}
 function openOp(id,preset){
   const ex=id?D.ops[id]:null;
   const st={type:ex?ex.type:(preset&&preset.type)||(UI.tab==="overview"?UI.ov.type:"expense"),expr:ex?String(ex.amount).replace(".",","):"",accountId:ex?ex.accountId:(settings().defaultAccount&&account(settings().defaultAccount)&&!account(settings().defaultAccount).deleted?settings().defaultAccount:(accounts()[0]||{}).id),
@@ -685,7 +688,7 @@ function openOp(id,preset){
     const cats=categories(st.type);const use=catUsage(st.type);const sorted=cats.slice().sort((a,b)=>(use[b.id]||0)-(use[a.id]||0)||byOrder(a,b));
     let shown=st.showAll?sorted:sorted.slice(0,7);if(st.categoryId&&!shown.find(c=>c.id===st.categoryId)){const c=category(st.categoryId);if(c)shown=[c,...shown.slice(0,6)]}
     const t0=todayMs();const dq=[[iso(t0),"сегодня"],[iso(t0-DAY),"вчера"],[iso(t0-2*DAY),"позавчера"]];const custom=!dq.find(x=>x[0]===st.date);
-    const tags=tagsList();
+    const tu=tagUsage(st.categoryId,st.type);const tags=tagsList().sort((a,b)=>(tu[b.id]||0)-(tu[a.id]||0));
     let h=`<div class="amount-box ${st.kb?"focus":""}" data-x="amount" role="button" tabindex="0" aria-label="Сумма">${amountHtml()}</div>`;
     h+=`<div class="hscroll" role="group" aria-label="Счёт">${accounts().map(a=>`<button class="opt" data-acc="${esc(a.id)}" aria-pressed="${st.accountId===a.id}">${catIc(a)}<span>${esc(a.name)}<small class="num">${money(accBalance(a.id),a.currency)}</small></span></button>`).join("")}</div>`;
     h+=`<p class="flabel ${st._needCat?"req":""}" id="catLabel">${st._needCat?"Выбери категорию":"Категория"}</p><div class="cat-grid">`+shown.map(c=>`<button class="cat-btn" data-cat="${esc(c.id)}" aria-pressed="${st.categoryId===c.id}">${catIc(c)}<span class="n">${esc(c.name)}</span></button>`).join("")+
