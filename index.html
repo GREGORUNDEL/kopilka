@@ -222,6 +222,13 @@ h1.title.sm{font-size:28px;line-height:34px;margin:0;letter-spacing:-.01em}
 .hide-bal .acc-pick .big{filter:blur(14px)}
 .hide-bal svg .vn{filter:url(#vblur)}
 .hide-bal .opt small.num,.hide-bal .vn{filter:blur(6px)}
+/* phones are portrait-only: iOS ignores the manifest lock, so in landscape on a phone-sized screen the app is
+   covered by a "rotate back" screen (tablets and wide windows keep their landscape layout) */
+#rotate{display:none}
+@media (orientation:landscape) and (max-height:500px){
+  #rotate{position:fixed;inset:0;z-index:100000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#000;color:#fff;font-size:17px}
+  #rotate svg{color:#e60012}
+  body{overflow:hidden}}
 /* cold-launch splash: black screen, red sun with 金; pure CSS so it shows before JS loads and never on resume from background */
 #splash{position:fixed;inset:0;z-index:99999;background:#000;display:grid;place-items:center;pointer-events:none;animation:splash-out .35s ease 1.05s forwards}
 #splash .sun{width:min(46vw,200px);aspect-ratio:1;border-radius:50%;background:#e60012;display:grid;place-items:center;color:#000;font-size:min(26vw,112px);line-height:1;font-weight:700;font-family:"Hiragino Mincho ProN","Yu Mincho","Noto Serif CJK JP","Noto Serif JP","Hiragino Sans","Noto Sans CJK JP",serif;animation:splash-in .45s cubic-bezier(.2,.8,.2,1) both}
@@ -452,6 +459,7 @@ h1.title.sm{font-size:28px;line-height:34px;margin:0;letter-spacing:-.01em}
 </head>
 <body>
 <div id="splash" aria-hidden="true"><div class="sun">金</div></div>
+<div id="rotate" aria-live="polite"><svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.2"/><path d="M11 18.5h2"/></svg><b>Поверни телефон вертикально</b></div>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><filter id="vblur" x="-30%" y="-80%" width="160%" height="260%"><feGaussianBlur stdDeviation="4"/></filter></svg>
 <div id="vh" aria-hidden="true" style="position:fixed;inset:0;visibility:hidden;pointer-events:none;z-index:-1"></div>
 <div id="app"></div>
