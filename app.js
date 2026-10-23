@@ -314,25 +314,32 @@ function ovMini(rows,sum,type,r){
 }
 let ovScroll=null;
 function bindOvMini(){
-  if(ovScroll){window.removeEventListener("scroll",ovScroll);ovScroll=null}
+  if(ovScroll){window.removeEventListener("scroll",ovScroll);window.removeEventListener("resize",ovScroll);ovScroll=null}
   const mini=$("ovMini"),st=document.querySelector(".sticky");if(!mini||!st)return;
-  let raf=0;const bar=mini.querySelector(".mbar"),txt=mini.querySelector(".mt");
+  let raf=0;const bar=mini.querySelector(".mbar"),txt=mini.querySelector(".mt"),card=$("ovStats");
   const cl=(x,a,b)=>Math.max(a,Math.min(b,x));
-  /* The ring is squeezed against the header as it scrolls up: it gets flatter and wider (ring → ellipse → line)
-     and lands exactly on the bar's line; there it hands over to the bar. Follows the finger, no timers. */
-  const upd=()=>{raf=0;const a=document.querySelector("#ovStats .donut-wrap")||$("ovChart");if(!a||!a.isConnected)return;
+  // layout position that ignores transforms, so measuring never fights the animation
+  const docTop=el=>{let y=0;for(let e=el;e;e=e.offsetParent)y+=e.offsetTop;return y};
+  /* The whole stats card is squeezed against the header as it scrolls up: card and ring flatten together
+     (ring → ellipse → line), the ring also widens to the bar's width, and everything lands on the bar's line,
+     where the bar takes over and the card is gone. Driven by scroll position only, eased at both ends. */
+  const upd=()=>{raf=0;const a=document.querySelector("#ovStats .donut-wrap")||$("ovChart");if(!a||!a.isConnected||!card)return;
     const c=a.querySelector(".donut-c");
-    a.style.transform="";const R=a.getBoundingClientRect(),B=bar.getBoundingClientRect();
-    const target=B.top+B.height/2,mid=R.top+R.height/2;
-    const sy=cl((mid-target)/(R.height/2),0,1);           // 1 = round, 0 = flat on the bar line
-    const k=1-sy,sx=1+(B.width/R.width-1)*k*k;            // widens towards the bar width near the end
-    const ringOp=cl((sy-.04)/.14,0,1),barOp=cl((.2-sy)/.16,0,1);
-    if(sy<1){a.style.transform=`scale(${sx.toFixed(3)},${Math.max(sy,.02).toFixed(3)})`;a.style.opacity=ringOp.toFixed(3)}else a.style.opacity="";
-    if(c)c.style.opacity=cl((sy-.55)/.3,0,1).toFixed(3);
-    mini.style.opacity=barOp.toFixed(3);bar.style.transform=`scaleY(${(.25+.75*barOp).toFixed(3)})`;txt.style.transform=`translateY(${((1-barOp)*6).toFixed(1)}px)`;
+    const h=a.offsetHeight,ringMid=docTop(a)+h/2,cardTop=docTop(card);
+    const target=mini.getBoundingClientRect().top+bar.offsetTop+bar.offsetHeight/2+scrollY; // bar line, in page coordinates
+    const t=cl((ringMid-target)/(h*.85),0,1);
+    const sy=t*t*(3-2*t);                                   // smoothstep: 1 = round, 0 = flat on the bar line
+    const sx=1+(bar.offsetWidth/a.offsetWidth-1)*Math.pow(1-sy,1.6);
+    const cardOp=cl((sy-.03)/.17,0,1),barOp=cl((.22-sy)/.19,0,1);
+    if(sy<1){card.style.transformOrigin=`50% ${(ringMid-cardTop).toFixed(1)}px`;card.style.transform=`scaleY(${Math.max(sy,.015).toFixed(4)})`;card.style.opacity=cardOp.toFixed(3);
+      a.style.transform=`scaleX(${sx.toFixed(4)})`;card.style.visibility=cardOp>0?"":"hidden"}
+    else{card.style.transform=card.style.opacity=card.style.visibility=a.style.transform=""}
+    if(c)c.style.opacity=cl((sy-.6)/.3,0,1).toFixed(3);
+    const ctl=cl((sy-.5)/.35,0,1).toFixed(3);for(const el of card.children)if(el!==a&&!el.contains(a))el.style.opacity=ctl; // buttons and dates fade instead of squashing
+    mini.style.opacity=barOp.toFixed(3);bar.style.transform=`scaleY(${(.3+.7*barOp).toFixed(3)})`;txt.style.transform=`translateY(${((1-barOp)*5).toFixed(1)}px)`;
     const on=barOp>.5;if(mini.classList.contains("on")!==on){mini.classList.toggle("on",on);mini.setAttribute("aria-hidden",String(!on));mini.tabIndex=on?0:-1}};
   ovScroll=()=>{if(!raf)raf=requestAnimationFrame(upd)};
-  window.addEventListener("scroll",ovScroll,{passive:true});upd();
+  window.addEventListener("scroll",ovScroll,{passive:true});window.addEventListener("resize",ovScroll,{passive:true});upd();
 }
 const bl=s=>String(s).replace(/[+−-]?\d(?:[\d\u00a0\u202f]*\d)?(?:[.,]\d+)?/g,m=>`<span class="vn">${m}</span>`);
 const eyeBtn=()=>`<button class="icon-btn" data-act="hidebal" aria-label="${UI.hideBal?"Показать баланс":"Скрыть баланс"}" aria-pressed="${!!UI.hideBal}">${svgI(UI.hideBal?"eyeOff":"eye")}</button>`;
