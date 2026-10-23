@@ -243,7 +243,10 @@ function render(){
   renderTabs();
   const fn={overview:renderOverview,ops:renderOps,kopilka:renderKopilka,accounts:renderAccounts}[UI.tab]||renderOverview;
   $("app").innerHTML=`<div class="page" data-tab="${UI.tab}">${fn()}</div>`;
-  bindAfter();M.lastTab=UI.tab;M.expand=null;
+  bindAfter();
+  if(UI.tab!=="overview")motionPage(M.lastTab!==UI.tab);
+  if(M.lastTab&&M.lastTab!==UI.tab&&!reduceMotion()){const pg=document.querySelector("#app .page");pg&&pg.animate([{opacity:0,transform:"translateY(8px)"},{opacity:1,transform:"none"}],{duration:240,easing:EASE})}
+  M.lastTab=UI.tab;M.expand=null;
   saveUI();
 }
 let afterFns=[];
@@ -303,7 +306,7 @@ function renderOverview(){
         <span class="pct num">${nf0.format(pct)}%</span><span class="amt num">${nf2.format(x.v)} €</span></button>${sub}`}).join("")+`</div>`;
   }else h+=`<div class="card empty"><b>Нет ${type==="expense"?"расходов":"доходов"} за период</b>Нажми «+», чтобы добавить.</div>`;
   h+=`</div></div></main>`;
-  after(()=>{bindCustomRange("ov");bindSwipe($("ovStats"),"ov");slideIn("#ovStats .donut-wrap,#ovCats");motionHome(enter);
+  after(()=>{bindCustomRange("ov");bindSwipe($("ovStats"),"ov");slideIn("#ovStats .donut-wrap,#ovCats");motionPage(enter);
     if(bars){const g=p.kind==="custom"?"week":p.kind,bs=chartData(g,type,sel),a=periodRange(p).start,idx=bs.findIndex(b=>a>=b.start&&a<b.end);
       drawChart(bs,{mode:type,group:g,sel:idx<0?null:idx},{box:$("ovChart"),legend:$("ovLegend"),first:true,focusSel:true,onPick:i=>{UI.ov.period={...UI.ov.period,kind:g,anchor:iso(bs[i].start)};render()}})}});
   return h;
@@ -379,17 +382,23 @@ const reduceMotion=()=>{try{return matchMedia("(prefers-reduced-motion: reduce)"
 const splashLeft=()=>{const sp=document.getElementById("splash");if(!sp||!sp.getAnimations)return 0;
   const an=sp.getAnimations().find(x=>x.animationName==="splash-out");if(!an||an.playState==="finished")return 0;
   return Math.max(0,Math.round(1050-(an.currentTime||0)+120))};
-const M={vals:{},bars:{},ringKey:null,lastTab:null,expand:null};
-const FMT={nf2:v=>nf2.format(v),eur:v=>eur(v)};
+const M={vals:{},bars:{},rings:{},ringKey:null,lastTab:null,expand:null};
+const FMT={nf2:v=>nf2.format(v),eur:v=>eur(v),pct:v=>nf0.format(v)+"%"};
 document.addEventListener("touchstart",()=>{},{passive:true}); // lets iOS Safari show :active press states
 function rollNum(el,from,to,fmt,dur){const t0=performance.now();
   const step=t=>{if(!el.isConnected)return;const k=Math.min(1,(t-t0)/dur),e=1-Math.pow(1-k,3);el.textContent=fmt(from+(to-from)*e);if(k<1)requestAnimationFrame(step)};
   requestAnimationFrame(step)}
-function motionHome(enter){
+function motionPage(enter){
   const rm=reduceMotion(),delay=enter?splashLeft():0;
   // numbers count from their previous value to the new one
   document.querySelectorAll("[data-roll]").forEach(el=>{const k=el.dataset.roll.split(":")[0],v=+el.dataset.v,prev=M.vals[k],fmt=FMT[el.dataset.fmt]||FMT.nf2;
     M.vals[k]=v;if(rm||prev==null||Math.abs(prev-v)<.005)return;el.textContent=fmt(prev);rollNum(el,prev,v,fmt,520)});
+  // progress rings fill from empty when the screen opens, otherwise from where they were
+  document.querySelectorAll(".ring .fill[data-ring]").forEach(el=>{const k=el.dataset.ring,to=+el.getAttribute("stroke-dashoffset"),full=parseFloat(el.getAttribute("stroke-dasharray")),from=enter?full:M.rings[k];M.rings[k]=to;
+    if(rm||from==null||Math.abs(from-to)<.05)return;el.animate([{strokeDashoffset:from},{strokeDashoffset:to}],{duration:enter?800:450,delay,easing:EASE,fill:"backwards"})});
+  // line and bar charts are drawn in from left to right when the screen opens
+  if(enter&&!rm)document.querySelectorAll("#app .chart svg, #app .chart .ch-inner").forEach(el=>{if(el.closest(".ch-axis")||(el.tagName.toLowerCase()==="svg"&&el.closest(".ch-inner")))return;
+    el.animate([{clipPath:"inset(0 100% 0 0)"},{clipPath:"inset(0 0 0 0)"}],{duration:800,delay:delay+150,easing:EASE,fill:"backwards"})});
   // bars grow from their previous width; on entering the screen, from zero, one after another
   let n=0;document.querySelectorAll("[data-bar]").forEach(el=>{const k=el.dataset.bar,to=el.style.width,from=enter?"0%":M.bars[k];M.bars[k]=to;
     if(rm||from==null||from===to)return;el.animate([{width:from},{width:to}],{duration:enter?650:420,delay:delay+(enter&&k.startsWith("cat:")?120+Math.min(n++,8)*40:0),easing:EASE,fill:"backwards"})});
@@ -422,7 +431,7 @@ function renderOps(){
   h+=`<div class="searchbox">${svgI("search")}<input id="opsq" type="search" placeholder="Поиск: категория, тег, комментарий, сумма" value="${esc(S.q||"")}" autocomplete="off"></div>`;
   h+=`<div class="seg" role="group" aria-label="Тип">${[["all","Все"],["expense","Расходы"],["income","Доходы"],["transfer","Переводы"]].map(([k,l])=>`<button data-act="opsf" data-v="${k}" aria-pressed="${S.filter===k}">${l}</button>`).join("")}</div>`;
   h+=`<div>${periodControls("ops",p)}
-    <div class="sub" style="margin-top:6px;display:flex;gap:14px;flex-wrap:wrap;justify-content:center">${S.filter!=="income"&&S.filter!=="transfer"?`<span>Расходы: <b class="num" style="color:var(--ink)">${nf2.format(sumE)} €</b></span>`:""}${S.filter!=="expense"&&S.filter!=="transfer"?`<span>Доходы: <b class="num pos-t">${nf2.format(sumI)} €</b></span>`:""}${S.filter==="transfer"?`<span>${ops.length} записей</span>`:""}</div>
+    <div class="sub" style="margin-top:6px;display:flex;gap:14px;flex-wrap:wrap;justify-content:center">${S.filter!=="income"&&S.filter!=="transfer"?`<span>Расходы: <b class="num" style="color:var(--ink)"><span data-roll="opsE" data-v="${sumE.toFixed(2)}" data-fmt="nf2">${nf2.format(sumE)}</span> €</b></span>`:""}${S.filter!=="expense"&&S.filter!=="transfer"?`<span>Доходы: <b class="num pos-t"><span data-roll="opsI" data-v="${sumI.toFixed(2)}" data-fmt="nf2">${nf2.format(sumI)}</span> €</b></span>`:""}${S.filter==="transfer"?`<span>${ops.length} записей</span>`:""}</div>
     ${S.cat?`<button class="btn plain" style="margin-top:8px;padding:8px" data-act="clearcat">Показать все категории</button>`:""}</div></div></div>`;
   if(!ops.length)h+=`<div class="card empty"><b>Ничего не найдено</b>Измени период или фильтр.</div>`;
   else{let day=null,buf="",net=0;const flush=()=>{if(day){h+=`<section class="group"><p class="section-label"><span>${esc(dayLabel(parseD(day)))}</span>${net?`<span class="num">${net>0?"+":"−"}${nf2.format(Math.abs(net))} €</span>`:""}</p><div class="list">${buf}</div></section>`}};
@@ -474,16 +483,16 @@ function renderKopilka(){
   if(!m){h+=`<div class="card empty"><b>Пока нечего считать</b>Добавь неделю или операции.</div></main>`;return h}
   const b=m.budgets[UI.budget];
   h+=`<div class="kcols"><div class="kcol">`;
-  h+=`<section class="card hero" id="kHero"><div class="sub">Накоплено</div><div class="big num">${eur(m.bal)}<small>€</small></div>
-    <div class="hero-row"><div class="stat"><div class="v num">${eur(m.pace)}</div><div class="k">€ в неделю</div><div class="d">за ${m.win} нед${Math.abs(m.netPace-m.pace)>=1?"<br>с разовыми "+eur(m.netPace):""}</div></div>
+  h+=`<section class="card hero" id="kHero"><div class="sub">Накоплено</div><div class="big num"><span data-roll="kBal" data-v="${m.bal.toFixed(2)}" data-fmt="eur">${eur(m.bal)}</span><small>€</small></div>
+    <div class="hero-row"><div class="stat"><div class="v num"><span data-roll="kPace" data-v="${m.pace.toFixed(2)}" data-fmt="eur">${eur(m.pace)}</span></div><div class="k">€ в неделю</div><div class="d">за ${m.win} нед${Math.abs(m.netPace-m.pace)>=1?"<br>с разовыми "+eur(m.netPace):""}</div></div>
     <div class="stat"><div class="v num">${m.left}</div><div class="k">недель <span class="jp">あと</span></div><div class="d">до ${dmy(parseD(c.deadline))}</div></div>
     <div class="stat"><div class="v num">${nf1.format(cr.rate)}</div><div class="k">¥ за 1 €</div><div class="d">${cr.manual?"вручную":"курс на "+dm(parseD(cr.date))}</div></div></div></section>`;
   h+=`<div class="seg" id="kSeg" role="group" aria-label="Бюджет жизни"><button data-act="budget" data-v="mine" aria-pressed="${UI.budget==="mine"}">Мой бюджет<span>¥${nf0.format(c.mine)}/мес</span></button><button data-act="budget" data-v="comfort" aria-pressed="${UI.budget==="comfort"}">Комфорт<span>¥${nf0.format(c.comfort)}/мес</span></button></div>`;
   h+=`<section class="schools" id="kSchools">`+["SNG","KAI"].map((s,i)=>{const x=b[s],col=i?"var(--series-2)":"var(--series-1)",C=2*Math.PI*22,p=Math.max(0,Math.min(1,x.progress));
     return `<article class="card school"><div class="school-top"><svg class="ring" viewBox="0 0 52 52" role="img" aria-label="${s}: ${nf1.format(x.progress*100)}%"><circle class="track" cx="26" cy="26" r="22"/>
-      <circle class="fill" cx="26" cy="26" r="22" stroke="${col}" stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${(C*(1-p)).toFixed(1)}"/><text class="vn" x="26" y="27">${nf0.format(x.progress*100)}%</text></svg>
-      <div style="min-width:0"><h3><span class="dot" style="background:${col}"></span>${s}</h3><div class="goal">цель <span class="vn num">${eur(x.goal)} €</span></div></div></div>
-      <div class="rows"><div class="r"><span class="k">Нужно в нед.</span><span class="v num">${eur(x.need)}</span></div>
+      <circle class="fill" data-ring="${s}" cx="26" cy="26" r="22" stroke="${col}" stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${(C*(1-p)).toFixed(1)}"/><text class="vn" x="26" y="27" data-roll="kP${s}" data-v="${(x.progress*100).toFixed(2)}" data-fmt="pct">${nf0.format(x.progress*100)}%</text></svg>
+      <div style="min-width:0"><h3><span class="dot" style="background:${col}"></span>${s}</h3><div class="goal">цель <span class="vn num"><span data-roll="kG${s}" data-v="${x.goal.toFixed(2)}" data-fmt="eur">${eur(x.goal)}</span> €</span></div></div></div>
+      <div class="rows"><div class="r"><span class="k">Нужно в нед.</span><span class="v num"><span data-roll="kN${s}" data-v="${x.need.toFixed(2)}" data-fmt="eur">${eur(x.need)}</span></span></div>
       <div class="r"><span class="k">Прогноз</span><span class="pill num ${x.fc>=0?"pos":"neg"}">${signed(x.fc)}</span></div>
       <div class="r"><span class="k">+ отпускные</span><span class="v num ${x.fcH>=0?"pos-t":"neg-t"}">${signed(x.fcH)}</span></div></div></article>`}).join("")+`</section>`;
   h+=`<section id="kChanges"><p class="section-label">Что изменилось за неделю</p><div class="card changes">${kChanges(ws,m,cr)}</div></section>`;
@@ -671,11 +680,11 @@ function drawChart(bs,S,o){
 /* ================= ACCOUNTS tab ================= */
 function renderAccounts(){
   let h=`<main class="wrap"><div class="head"><div><h1 class="title">Счета</h1></div>${eyeBtn()}</div>`;
-  h+=`<div class="acc-pick"><span class="sub">Всего на счетах</span><div class="big num">${UI.hideBal?"8 888,88":nf2.format(totalEUR(null))}<small>€</small></div></div>`;
+  h+=`<div class="acc-pick"><span class="sub">Всего на счетах</span><div class="big num">${UI.hideBal?"8 888,88":`<span data-roll="accTotal" data-v="${totalEUR(null).toFixed(2)}" data-fmt="nf2">${nf2.format(totalEUR(null))}</span>`}<small>€</small></div></div>`;
   h+=`<div class="btn-row"><button class="qbtn" data-act="transfer">${svgI("swap")}Создать перевод</button><button class="qbtn" data-act="transfers">${svgI("history")}История переводов</button></div>`;
   const accs=accounts();
   h+=`<div class="list">`+(accs.length?accs.map(a=>{const b=accBalance(a.id);return `<button class="row" data-act="editacc" data-v="${esc(a.id)}">${catIc(a)}<div class="mid"><div class="t">${esc(a.name)}</div><div class="s">${esc(a.desc||"")}${a.exclude?(a.desc?" · ":"")+"не в итоге":""}</div></div>
-    <span class="amt num">${money(b,a.currency)}${a.currency!=="EUR"?`<small>≈ ${nf2.format(toEUR(b,a.currency))} €</small>`:""}</span></button>`}).join(""):'<div class="empty">Пока нет счетов. Нажми «+».</div>')+`</div>`;
+    <span class="amt num"><span data-roll="acc-${esc(a.id)}" data-v="${b.toFixed(2)}" data-fmt="nf2">${nf2.format(b)}</span> ${esc(sym(a.currency))}${a.currency!=="EUR"?`<small>≈ ${nf2.format(toEUR(b,a.currency))} €</small>`:""}</span></button>`}).join(""):'<div class="empty">Пока нет счетов. Нажми «+».</div>')+`</div>`;
   h+=`<section><p class="section-label">Справочники</p><div class="list">
     <button class="row" data-act="catlist" data-v="expense"><span class="ic" style="background:var(--exp)">${svgI("cats")}</span><div class="mid"><div class="t">Категории расходов</div></div><span class="val num">${categories("expense").length}</span>${svgI("chevR")}</button>
     <button class="row" data-act="catlist" data-v="income"><span class="ic" style="background:var(--inc)">${svgI("cats")}</span><div class="mid"><div class="t">Категории доходов</div></div><span class="val num">${categories("income").length}</span>${svgI("chevR")}</button>
@@ -1116,11 +1125,11 @@ document.addEventListener("click",e=>{
     case "budgettoggle":{const box=el.closest(".budget");
       if(UI.budgetOpen&&box){const ch=box.querySelector(".b-chev");ch&&!reduceMotion()&&ch.animate([{transform:"rotate(180deg)"},{transform:"rotate(0deg)"}],{duration:240,easing:EASE,fill:"forwards"});
         fold(box.querySelectorAll(".rows,.b-foot"),()=>{UI.budgetOpen=false;render()})}
-      else{UI.budgetOpen=true;render();M.expand="budget";motionHome(false)}break}
+      else{UI.budgetOpen=true;render();M.expand="budget";motionPage(false)}break}
     case "ptoday":P.period={...P.period,anchor:todayIso()};render();break;
     case "ovopen":{const sub=el.nextElementSibling;
       if(UI.ov.open===v&&sub&&sub.classList.contains("cat-sub"))fold([sub],()=>{UI.ov.open=null;render()});
-      else{UI.ov.open=v;render();M.expand="cat:"+v;motionHome(false)}break}
+      else{UI.ov.open=v;render();M.expand="cat:"+v;motionPage(false)}break}
     case "showcatops":UI.ops={...UI.ops,filter:UI.ov.type,period:{...UI.ov.period},accs:UI.ov.accs,cat:v,tag:el.dataset.tag||null,q:""};UI.tab="ops";window.scrollTo(0,0);render();break;
     case "clearcat":UI.ops.cat=null;UI.ops.tag=null;render();break;
     case "opsf":UI.ops.filter=v;render();break;

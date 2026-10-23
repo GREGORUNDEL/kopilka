@@ -194,10 +194,12 @@ h1.title.sm{font-size:28px;line-height:34px;margin:0;letter-spacing:-.01em}
 /* motion: ring sweep, press feedback (Home for now) */
 .ring-cover{stroke-dashoffset:0;animation:ring-sweep .75s cubic-bezier(.3,.7,.2,1) forwards}
 @keyframes ring-sweep{to{stroke-dashoffset:-314.16px;visibility:hidden}}
-[data-tab=overview] :is(.row,.b-head,.goal-line,.ctag,.icon-btn,.seg button,.acc-pick.tap),#fab{transition:transform .18s cubic-bezier(.2,.8,.2,1),opacity .18s}
-[data-tab=overview] :is(.row,.b-head,.ctag):active{transform:scale(.985)}
-[data-tab=overview] :is(.icon-btn,.seg button):active,#fab:active{transform:scale(.92)}
-@media (prefers-reduced-motion:reduce){.ring-cover{display:none}[data-tab=overview] :is(.row,.b-head,.goal-line,.ctag,.icon-btn,.seg button,.acc-pick.tap):active,#fab:active{transform:none}}
+.page :is(.row,.b-head,.goal-line,.ctag,.icon-btn,.seg button,.acc-pick.tap,.qbtn,.btn,.card.school),#fab,.tab,.sheet :is(.cat-btn,.dchip,.opt,.tag,.keypad button){transition:transform .18s cubic-bezier(.2,.8,.2,1),opacity .18s}
+.page :is(.row,.b-head,.ctag,.btn):active{transform:scale(.985)}
+.page :is(.qbtn):active{transform:scale(.96)}
+.page :is(.icon-btn,.seg button):active,#fab:active,.tab:active,.sheet :is(.cat-btn,.dchip,.opt,.tag):active{transform:scale(.92)}
+.sheet .keypad button:active{transform:scale(.95)}
+@media (prefers-reduced-motion:reduce){.ring-cover{display:none}.page :active,#fab:active,.tab:active,.sheet :active{transform:none!important}}
 .cat-row .pct{flex:none;width:44px;text-align:right;font-size:15px;color:var(--ink-muted)}
 .cat-sub{padding:0 16px 8px 64px;display:flex;flex-direction:column;gap:0;font-size:15px;line-height:20px}
 .cat-sub .ctag{display:flex;align-items:center;gap:8px;width:100%;min-height:36px;padding:0;border:0;background:none;font:inherit;color:var(--ink-muted);text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent}
