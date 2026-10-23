@@ -316,7 +316,7 @@ h1.title.sm{font-size:28px;line-height:34px;margin:0;letter-spacing:-.01em}
 .sheet-head>button:disabled{color:var(--ink-muted)}
 .sheet-head .seg{max-width:230px;margin:0 auto}
 .sheet-head .seg button{font-size:15px;padding:6px 10px}
-.sheet-body{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;padding:4px max(16px,env(safe-area-inset-right,0px)) calc(20px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:16px}
+.sheet-body{flex:1;overflow-x:hidden;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:4px max(16px,env(safe-area-inset-right,0px)) calc(20px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:16px}
 .sheet-body.with-pad{padding-bottom:16px}
 .sheet-body>*{flex-shrink:0}
 .form{background:var(--surface-raised);border-radius:var(--r-md);overflow:hidden}
@@ -370,7 +370,9 @@ h1.title.sm{font-size:28px;line-height:34px;margin:0;letter-spacing:-.01em}
 .dchip b{display:block;font-size:15px;line-height:20px;color:var(--ink)}
 .dchip[aria-pressed="true"]{border-color:var(--ai);color:var(--ai)}
 .dchip[aria-pressed="true"] b{color:var(--ai)}
-.dchip input{border:0;background:transparent;font-size:16px;width:9.2em;color:inherit}
+.dchip.pick{position:relative;flex:1;min-width:0;overflow:hidden}
+.dchip b .ic,.dchip b svg{width:18px;height:20px;display:inline-block;vertical-align:top}
+.dchip.pick input{position:absolute;inset:0;width:100%;height:100%;min-width:0;opacity:0;border:0;margin:0;padding:0;font-size:16px;-webkit-appearance:none;appearance:none}
 .tags{display:flex;flex-wrap:wrap;gap:8px}
 .tag{border-radius:999px;padding:7px 14px;font-size:15px;line-height:20px;border:1.5px solid transparent;background:var(--surface-raised)}
 .tag[aria-pressed="true"]{border-color:var(--ai);background:var(--ai-soft);color:var(--ai);font-weight:600}
