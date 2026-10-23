@@ -320,6 +320,9 @@ function bindOvMini(){
   const cl=(x,a,b)=>Math.max(a,Math.min(b,x));
   // layout position that ignores transforms, so measuring never fights the animation
   const docTop=el=>{let y=0;for(let e=el;e;e=e.offsetParent)y+=e.offsetTop;return y};
+  const followers=()=>{if(!card)return[];const out=[];for(let e=card.nextElementSibling;e;e=e.nextElementSibling)out.push(e);
+    const col=card.parentElement,grid=col&&col.parentElement;
+    if(grid&&getComputedStyle(grid).display!=="grid")for(let e=col.nextElementSibling;e;e=e.nextElementSibling)out.push(e);return out};
   /* The whole stats card is squeezed against the header as it scrolls up: card and ring flatten together
      (ring → ellipse → line), the ring also widens to the bar's width, and everything lands on the bar's line,
      where the bar takes over and the card is gone. Driven by scroll position only, eased at both ends. */
@@ -331,9 +334,12 @@ function bindOvMini(){
     const sy=t*t*(3-2*t);                                   // smoothstep: 1 = round, 0 = flat on the bar line
     const sx=1+(bar.offsetWidth/a.offsetWidth-1)*Math.pow(1-sy,1.6);
     const cardOp=cl((sy-.03)/.17,0,1),barOp=cl((.22-sy)/.19,0,1);
-    if(sy<1){card.style.transformOrigin=`50% ${(ringMid-cardTop).toFixed(1)}px`;card.style.transform=`scaleY(${Math.max(sy,.015).toFixed(4)})`;card.style.opacity=cardOp.toFixed(3);
+    const o=ringMid-cardTop,lift=sy<1?(card.offsetHeight-o)*(1-Math.max(sy,.015)):0; // how far the card's bottom edge has moved up
+    if(sy<1){card.style.transformOrigin=`50% ${o.toFixed(1)}px`;card.style.transform=`scaleY(${Math.max(sy,.015).toFixed(4)})`;card.style.opacity=cardOp.toFixed(3);
       a.style.transform=`scaleX(${sx.toFixed(4)})`;card.style.visibility=cardOp>0?"":"hidden"}
     else{card.style.transform=card.style.opacity=card.style.visibility=a.style.transform=""}
+    // the week card and the list follow the shrinking edge, so no empty gap opens up behind it
+    const tf=lift>0?`translateY(${(-lift).toFixed(1)}px)`:"";for(const f of followers())if(f.style.transform!==tf)f.style.transform=tf;
     if(c)c.style.opacity=cl((sy-.6)/.3,0,1).toFixed(3);
     const ctl=cl((sy-.5)/.35,0,1).toFixed(3);for(const el of card.children)if(el!==a&&!el.contains(a))el.style.opacity=ctl; // buttons and dates fade instead of squashing
     mini.style.opacity=barOp.toFixed(3);bar.style.transform=`scaleY(${(.3+.7*barOp).toFixed(3)})`;txt.style.transform=`translateY(${((1-barOp)*5).toFixed(1)}px)`;
