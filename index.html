@@ -197,6 +197,12 @@ h1.title.sm{font-size:28px;line-height:34px;margin:0;letter-spacing:-.01em}
 .gtxt b{color:var(--ink);font-weight:600}
 .veil{filter:blur(9px);-webkit-user-select:none;user-select:none;pointer-events:none}
 .acc-pick .big.veil{filter:blur(14px)}
+/* hidden balance: one switch (body.hide-bal) blurs every figure that shows or reveals a balance, on every tab and in sheets */
+.hide-bal .acc-pick .big,.hide-bal #kHero .big,.hide-bal #kHero .stat:first-child,.hide-bal #kSchools .school-top,.hide-bal #kSchools .rows,
+.hide-bal #kChanges .changes,.hide-bal #kWeeks .row .s,.hide-bal #kWeeks .row .amt,.hide-bal #kPathC .cap,.hide-bal #kPathC .chart,
+.hide-bal .row[data-act="editacc"] .amt,.hide-bal .row[data-a] .amt,.hide-bal .opt small.num,.hide-bal #abal:not(:focus)
+{filter:blur(9px);-webkit-user-select:none;user-select:none}
+.hide-bal .acc-pick .big{filter:blur(14px)}
 /* weekly budget card */
 .b-head{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;text-align:left}
 .b-main{display:flex;align-items:center;gap:14px;min-width:0}

@@ -237,6 +237,7 @@ function topBar(left,right){
     ${right||'<span style="width:36px"></span>'}</div></div>`;
 }
 function render(){
+  document.body.classList.toggle("hide-bal",!!UI.hideBal);
   if(UI.tab==="charts")UI.tab="kopilka";
   renderTabs();
   const fn={overview:renderOverview,ops:renderOps,kopilka:renderKopilka,accounts:renderAccounts}[UI.tab]||renderOverview;
@@ -275,7 +276,7 @@ function renderOverview(){
   const rows=Object.entries(by).map(([id,x])=>({id,...x,c:category(id)||{name:"Без категории",color:"#8E8E93",icon:"help-circle"}})).sort((a,b)=>b.v-a.v);
   const max=rows.length?rows[0].v:1;
   let h=`<main class="wrap"><div class="sticky"><div class="sticky-in"><div class="ov-head"><button class="icon-btn" data-act="settings" aria-label="Настройки">${svgI("gear")}</button>
-    <div class="acc-pick"><button data-act="accpick" data-scope="ov">${esc(accLabel(sel))} ${svgI("chevD")}</button><div class="big num${UI.hideBal?" veil":""}">${UI.hideBal?"8 888,88":nf2.format(total)}<small>€</small></div></div><button class="icon-btn" data-act="hidebal" aria-label="${UI.hideBal?"Показать баланс":"Скрыть баланс"}" aria-pressed="${!!UI.hideBal}">${svgI(UI.hideBal?"eyeOff":"eye")}</button></div>${sel?"":goalLine()}</div></div>`;
+    <div class="acc-pick"><button data-act="accpick" data-scope="ov">${esc(accLabel(sel))} ${svgI("chevD")}</button><div class="big num${UI.hideBal?" veil":""}">${UI.hideBal?"8 888,88":nf2.format(total)}<small>€</small></div></div>${eyeBtn()}</div>${sel?"":goalLine()}</div></div>`;
   h+=syncBanner();
   if(!getAuth()&&!accounts().length)h+=onboardCard();
   h+=`<div class="ov-grid"><div class="ov-col">`;
@@ -306,6 +307,7 @@ function renderOverview(){
       drawChart(bs,{mode:type,group:g,sel:idx<0?null:idx},{box:$("ovChart"),legend:$("ovLegend"),first:true,focusSel:true,onPick:i=>{UI.ov.period={...UI.ov.period,kind:g,anchor:iso(bs[i].start)};render()}})}});
   return h;
 }
+const eyeBtn=()=>`<button class="icon-btn" data-act="hidebal" aria-label="${UI.hideBal?"Показать баланс":"Скрыть баланс"}" aria-pressed="${!!UI.hideBal}">${svgI(UI.hideBal?"eyeOff":"eye")}</button>`;
 function goalLine(){
   const K=kNow();if(!K.m)return"";const g=K.m.budgets[UI.budget].KAI,p=Math.max(0,Math.min(1,g.progress));
   return `<button class="goal-line" data-act="tab" data-v="kopilka" aria-label="Открыть Копилку"><span class="gbar${UI.hideBal?" veil":""}"><i style="width:${UI.hideBal?50:(p*100).toFixed(1)}%"></i></span>
@@ -414,7 +416,7 @@ function bindCustomRange(scope){
 function renderKopilka(){
   const K=kNow(),c=kcfg(),ws=K.ws,cr=K.r,m=K.m;
   let h=`<main class="wrap"><header class="head"><div><h1 class="title">Япония</h1><div class="sub">${ws.length?(()=>{const lm=parseD(ws[ws.length-1].monday);return "Неделя "+dm(lm)+"–"+dmy(lm+6*DAY)})():"Нет недель"}</div></div>
-    <div style="display:flex;align-items:center;gap:12px"><button class="icon-btn" data-act="ksettings" aria-label="Настройки Копилки">${svgI("gear")}</button><div class="hanko" aria-hidden="true">貯</div></div></header>`;
+    <div style="display:flex;align-items:center;gap:12px">${eyeBtn()}<button class="icon-btn" data-act="ksettings" aria-label="Настройки Копилки">${svgI("gear")}</button><div class="hanko" aria-hidden="true">貯</div></div></header>`;
   if(ws.length&&!cr)h+=`<div class="banner">Нет курса иены. Подключись к интернету или укажи курс вручную в настройках Копилки.</div>`;
   if(!m){h+=`<div class="card empty"><b>Пока нечего считать</b>Добавь неделю или операции.</div></main>`;return h}
   const b=m.budgets[UI.budget];
@@ -615,8 +617,8 @@ function drawChart(bs,S,o){
 
 /* ================= ACCOUNTS tab ================= */
 function renderAccounts(){
-  let h=`<main class="wrap"><div class="head"><div><h1 class="title">Счета</h1></div></div>`;
-  h+=`<div class="acc-pick"><span class="sub">Всего на счетах</span><div class="big num">${nf2.format(totalEUR(null))}<small>€</small></div></div>`;
+  let h=`<main class="wrap"><div class="head"><div><h1 class="title">Счета</h1></div>${eyeBtn()}</div>`;
+  h+=`<div class="acc-pick"><span class="sub">Всего на счетах</span><div class="big num">${UI.hideBal?"8 888,88":nf2.format(totalEUR(null))}<small>€</small></div></div>`;
   h+=`<div class="btn-row"><button class="qbtn" data-act="transfer">${svgI("swap")}Создать перевод</button><button class="qbtn" data-act="transfers">${svgI("history")}История переводов</button></div>`;
   const accs=accounts();
   h+=`<div class="list">`+(accs.length?accs.map(a=>{const b=accBalance(a.id);return `<button class="row" data-act="editacc" data-v="${esc(a.id)}">${catIc(a)}<div class="mid"><div class="t">${esc(a.name)}</div><div class="s">${esc(a.desc||"")}${a.exclude?(a.desc?" · ":"")+"не в итоге":""}</div></div>
