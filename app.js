@@ -277,7 +277,7 @@ function renderOverview(){
   const rows=Object.entries(by).map(([id,x])=>({id,...x,c:category(id)||{name:"Без категории",color:"#8E8E93",icon:"help-circle"}})).sort((a,b)=>b.v-a.v);
   const max=rows.length?rows[0].v:1;
   let h=`<main class="wrap"><div class="sticky"><div class="sticky-in"><div class="ov-head"><button class="icon-btn" data-act="settings" aria-label="Настройки">${svgI("gear")}</button>
-    <button class="acc-pick tap" data-act="accpick" data-scope="ov" aria-label="${esc(accLabel(sel))}: выбрать счета"><span class="big num${UI.hideBal?" veil":""}">${UI.hideBal?"8 888,88":nf2.format(total)}<small>€</small></span>${sel?`<span class="acc-sel">${esc(accLabel(sel))} ${svgI("chevD")}</span>`:""}</button>${eyeBtn()}</div>${sel?"":goalLine()}</div>${ovMini(rows,sum,type,r)}</div>`;
+    <button class="acc-pick tap" data-act="accpick" data-scope="ov" aria-label="${esc(accLabel(sel))}: выбрать счета"><span class="big num${UI.hideBal?" veil":""}">${UI.hideBal?"8 888,88":nf2.format(total)}<small>€</small></span>${sel?`<span class="acc-sel">${esc(accLabel(sel))} ${svgI("chevD")}</span>`:""}</button>${eyeBtn()}</div>${sel?"":goalLine()}</div></div>`;
   h+=syncBanner();
   if(!getAuth()&&!accounts().length)h+=onboardCard();
   h+=`<div class="ov-grid"><div class="ov-col">`;
@@ -302,90 +302,10 @@ function renderOverview(){
         <span class="pct num">${nf0.format(pct)}%</span><span class="amt num">${nf2.format(x.v)} €</span></button>${sub}`}).join("")+`</div>`;
   }else h+=`<div class="card empty"><b>Нет ${type==="expense"?"расходов":"доходов"} за период</b>Нажми «+», чтобы добавить.</div>`;
   h+=`</div></div></main>`;
-  after(()=>{bindCustomRange("ov");bindSwipe($("ovStats"),"ov");bindOvMini();slideIn("#ovStats .donut-wrap,#ovCats");
+  after(()=>{bindCustomRange("ov");bindSwipe($("ovStats"),"ov");slideIn("#ovStats .donut-wrap,#ovCats");
     if(bars){const g=p.kind==="custom"?"week":p.kind,bs=chartData(g,type,sel),a=periodRange(p).start,idx=bs.findIndex(b=>a>=b.start&&a<b.end);
       drawChart(bs,{mode:type,group:g,sel:idx<0?null:idx},{box:$("ovChart"),legend:$("ovLegend"),first:true,focusSel:true,onPick:i=>{UI.ov.period={...UI.ov.period,kind:g,anchor:iso(bs[i].start)};render()}})}});
   return h;
-}
-/* compact stacked bar that takes the ring's place in the header once the ring scrolls up under it */
-function ovMini(rows,sum,type,r){
-  const segs=rows.filter(x=>x.v>0).map((x,i)=>`<i style="flex:${(x.v/(sum||1)).toFixed(4)} 1 0;background:${esc(x.c.color)};--d:${Math.min(i,8)*30}ms"></i>`).join("");
-  return `<button class="ov-mini" id="ovMini" data-act="ovtop" tabindex="-1" aria-hidden="true"><span class="mt"><span>${type==="expense"?"Расходы":"Доходы"} · ${esc(r.label)}</span><b class="num">${nf2.format(sum)} €</b></span><span class="mbar">${segs||"<i style=\"flex:1;background:var(--surface-sunken)\"></i>"}</span></button>`;
-}
-let ovScroll=null;
-let ovResize=null;
-function bindOvMini(){
-  if(ovScroll){window.removeEventListener("scroll",ovScroll);window.removeEventListener("resize",ovScroll);ovScroll=null}
-  if(ovResize){window.removeEventListener("resize",ovResize);ovResize=null}
-  const mini=$("ovMini"),st=document.querySelector(".sticky");if(!mini||!st)return;
-  let raf=0;const bar=mini.querySelector(".mbar"),txt=mini.querySelector(".mt"),card=$("ovStats");
-  const cl=(x,a,b)=>Math.max(a,Math.min(b,x));
-  // layout position that ignores transforms, so measuring never fights the animation
-  const docTop=el=>{let y=0;for(let e=el;e;e=e.offsetParent)y+=e.offsetTop;return y};
-  const followers=()=>{if(!card)return[];const out=[];for(let e=card.nextElementSibling;e;e=e.nextElementSibling)out.push(e);
-    const col=card.parentElement,grid=col&&col.parentElement;
-    if(grid&&getComputedStyle(grid).display!=="grid")for(let e=col.nextElementSibling;e;e=e.nextElementSibling)out.push(e);return out};
-  /* The whole stats card is squeezed against the header as it scrolls up: card and ring flatten together
-     (ring → ellipse → line), the ring also widens to the bar's width, and everything lands on the bar's line,
-     where the bar takes over and the card is gone. Driven by scroll position only, eased at both ends. */
-  /* Preferred path: the browser's own scroll-driven animations (Safari 26+). They run in step with the scroll on the
-     compositor, so nothing lags a frame behind the finger and nothing jitters. Keyframes are sampled from the same
-     curves as the JS fallback below. */
-  if(card&&window.CSS&&CSS.supports("animation-timeline: scroll()")){
-    const a=card.querySelector(".donut-wrap")||$("ovChart"),c=a&&a.querySelector(".donut-c"),ring=a&&(a.querySelector("svg")||a);
-    if(!a)return;
-    const h=a.offsetHeight,ringMid=docTop(a)+h/2,cardTop=docTop(card),o=ringMid-cardTop,H=card.offsetHeight;
-    const target=mini.getBoundingClientRect().top+bar.offsetTop+bar.offsetHeight/2;  // the bar line on screen (header is pinned)
-    const S1=ringMid-target,S0=S1-h*.85,ratio=bar.offsetWidth/a.offsetWidth;
-    if(S1<=0){/* page too short to collapse */}
-    const N=40;const K={card:[],ring:[],c:[],ctl:[],fol:[],mini:[],bar:[],txt:[]};
-    for(let i=0;i<=N;i++){const u=i/N,t=1-u,sy=t*t*(3-2*t),q=(i*100/N).toFixed(1)+"%";
-      const syc=Math.max(sy,.015),cardOp=cl((sy-.03)/.17,0,1),barOp=cl((.22-sy)/.19,0,1);
-      K.card.push(`${q}{transform:scaleY(${syc.toFixed(4)});opacity:${cardOp.toFixed(3)}}`);
-      K.ring.push(`${q}{transform:scaleX(${(1+(ratio-1)*Math.pow(1-sy,1.6)).toFixed(4)})}`);
-      K.c.push(`${q}{opacity:${cl((sy-.6)/.3,0,1).toFixed(3)}}`);
-      K.ctl.push(`${q}{opacity:${cl((sy-.5)/.35,0,1).toFixed(3)}}`);
-      K.fol.push(`${q}{transform:translateY(${(-(H-o)*(1-syc)).toFixed(2)}px)}`);
-      K.mini.push(`${q}{opacity:${barOp.toFixed(3)}}`);
-      K.bar.push(`${q}{transform:scaleY(${(.3+.7*barOp).toFixed(3)})}`);
-      K.txt.push(`${q}{transform:translateY(${((1-barOp)*5).toFixed(2)}px)}`)}
-    const tl=`linear both;animation-timeline:scroll(root block);animation-range:${Math.max(0,S0).toFixed(1)}px ${Math.max(1,S1).toFixed(1)}px`;
-    const css=Object.entries(K).map(([k,v])=>`@keyframes ov-${k}{${v.join("")}}`).join("")+
-      `#ovStats{transform-origin:50% ${o.toFixed(1)}px;animation:ov-card ${tl}}`+
-      `.ov-anim-ring{transform-origin:50% 50%;animation:ov-ring ${tl}}.ov-anim-c{animation:ov-c ${tl}}.ov-anim-ctl{animation:ov-ctl ${tl}}`+
-      `.ov-anim-fol{animation:ov-fol ${tl}}#ovMini{animation:ov-mini ${tl}}#ovMini .mbar{animation:ov-bar ${tl}}#ovMini .mt{animation:ov-txt ${tl}}`;
-    let tag=$("ovAnimCss");if(!tag){tag=document.createElement("style");tag.id="ovAnimCss";document.head.appendChild(tag)}tag.textContent=css;
-    ring.classList.add("ov-anim-ring");if(c)c.classList.add("ov-anim-c");
-    for(const el of card.children)if(el!==a&&!el.contains(a))el.classList.add("ov-anim-ctl");
-    for(const f of followers())f.classList.add("ov-anim-fol");
-    // only the tappability of the bar is left to JS; nothing visual depends on this listener
-    const upd2=()=>{raf=0;const on=scrollY>=S1-h*.85*.12;if(mini.classList.contains("on")!==on){mini.classList.toggle("on",on);mini.setAttribute("aria-hidden",String(!on));mini.tabIndex=on?0:-1}};
-    ovScroll=()=>{if(!raf)raf=requestAnimationFrame(upd2)};
-    const re=()=>{ovScroll&&window.removeEventListener("scroll",ovScroll);window.removeEventListener("resize",re);bindOvMini()};
-    window.addEventListener("scroll",ovScroll,{passive:true});window.addEventListener("resize",re,{passive:true});ovResize=re;upd2();
-    return;
-  }
-  const tagOld=$("ovAnimCss");if(tagOld)tagOld.textContent="";
-  const upd=()=>{raf=0;const a=document.querySelector("#ovStats .donut-wrap")||$("ovChart");if(!a||!a.isConnected||!card)return;
-    const c=a.querySelector(".donut-c");
-    const h=a.offsetHeight,ringMid=docTop(a)+h/2,cardTop=docTop(card);
-    const target=mini.getBoundingClientRect().top+bar.offsetTop+bar.offsetHeight/2+scrollY; // bar line, in page coordinates
-    const t=cl((ringMid-target)/(h*.85),0,1);
-    const sy=t*t*(3-2*t);                                   // smoothstep: 1 = round, 0 = flat on the bar line
-    const sx=1+(bar.offsetWidth/a.offsetWidth-1)*Math.pow(1-sy,1.6);
-    const cardOp=cl((sy-.03)/.17,0,1),barOp=cl((.22-sy)/.19,0,1);
-    const o=ringMid-cardTop,lift=sy<1?(card.offsetHeight-o)*(1-Math.max(sy,.015)):0; // how far the card's bottom edge has moved up
-    if(sy<1){card.style.transformOrigin=`50% ${o.toFixed(1)}px`;card.style.transform=`scaleY(${Math.max(sy,.015).toFixed(4)})`;card.style.opacity=cardOp.toFixed(3);
-      a.style.transform=`scaleX(${sx.toFixed(4)})`;card.style.visibility=cardOp>0?"":"hidden"}
-    else{card.style.transform=card.style.opacity=card.style.visibility=a.style.transform=""}
-    // the week card and the list follow the shrinking edge, so no empty gap opens up behind it
-    const tf=lift>0?`translateY(${(-lift).toFixed(1)}px)`:"";for(const f of followers())if(f.style.transform!==tf)f.style.transform=tf;
-    if(c)c.style.opacity=cl((sy-.6)/.3,0,1).toFixed(3);
-    const ctl=cl((sy-.5)/.35,0,1).toFixed(3);for(const el of card.children)if(el!==a&&!el.contains(a))el.style.opacity=ctl; // buttons and dates fade instead of squashing
-    mini.style.opacity=barOp.toFixed(3);bar.style.transform=`scaleY(${(.3+.7*barOp).toFixed(3)})`;txt.style.transform=`translateY(${((1-barOp)*5).toFixed(1)}px)`;
-    const on=barOp>.5;if(mini.classList.contains("on")!==on){mini.classList.toggle("on",on);mini.setAttribute("aria-hidden",String(!on));mini.tabIndex=on?0:-1}};
-  ovScroll=()=>{if(!raf)raf=requestAnimationFrame(upd)};
-  window.addEventListener("scroll",ovScroll,{passive:true});window.addEventListener("resize",ovScroll,{passive:true});upd();
 }
 const bl=s=>String(s).replace(/[+−-]?\d(?:[\d\u00a0\u202f]*\d)?(?:[.,]\d+)?/g,m=>`<span class="vn">${m}</span>`);
 const eyeBtn=()=>`<button class="icon-btn" data-act="hidebal" aria-label="${UI.hideBal?"Показать баланс":"Скрыть баланс"}" aria-pressed="${!!UI.hideBal}">${svgI(UI.hideBal?"eyeOff":"eye")}</button>`;
@@ -427,10 +347,10 @@ function onboardCard(){return `<section class="card" style="display:flex;flex-di
 function catIc(c,cls){return `<span class="ic ${cls||""}" style="background:${esc(c.color||"#8E8E93")}">${icon(c.icon)}</span>`}
 function donut(segs){
   const R=50,C=2*Math.PI*R,total=segs.reduce((a,s)=>a+s.v,0);
-  let s=`<svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="${R}" fill="none" stroke="var(--surface-sunken)" stroke-width="14"/>`;
+  let s=`<svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="${R}" fill="none" stroke="var(--surface-sunken)" stroke-width="18"/>`;
   if(total>0){let off=0;const gap=segs.length>1?2:0;
     for(const g of segs){const len=g.v/total*C;const l=Math.max(0,len-gap);
-      s+=`<circle cx="60" cy="60" r="${R}" fill="none" stroke="${esc(g.color)}" stroke-width="14" stroke-dasharray="${l.toFixed(2)} ${(C-l).toFixed(2)}" stroke-dashoffset="${(-off).toFixed(2)}" transform="rotate(-90 60 60)"/>`;off+=len}}
+      s+=`<circle cx="60" cy="60" r="${R}" fill="none" stroke="${esc(g.color)}" stroke-width="18" stroke-dasharray="${l.toFixed(2)} ${(C-l).toFixed(2)}" stroke-dashoffset="${(-off).toFixed(2)}" transform="rotate(-90 60 60)"/>`;off+=len}}
   return s+`</svg>`;
 }
 /* ================= OPERATIONS ================= */
@@ -1157,7 +1077,6 @@ document.addEventListener("click",e=>{
     case "ksettings":openKSettings();break;
     case "chmode":UI.ch.mode=v;UI.ch.sel=null;render();break;
     case "chgroup":UI.ch.group=v;UI.ch.sel=null;render();break;
-    case "ovtop":window.scrollTo({top:0,behavior:matchMedia("(prefers-reduced-motion:reduce)").matches?"auto":"smooth"});break;
     case "ovview":UI.ov.view=UI.ov.view==="bars"?"donut":"bars";render();break;
     case "newacc":openAccount(null);break;
     case "editacc":openAccount(v);break;

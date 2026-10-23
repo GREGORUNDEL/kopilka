@@ -175,7 +175,7 @@ h1.title.sm{font-size:28px;line-height:34px;margin:0;letter-spacing:-.01em}
 .acc-pick .big small{font-size:22px;color:var(--ink-muted);font-weight:600;margin-left:4px}
 
 /* overview */
-.ov-stats{display:flex;flex-direction:column;will-change:transform,opacity}
+.ov-stats{display:flex;flex-direction:column}
 .ov-top{display:flex;gap:8px;align-items:center}
 .ov-top .seg{flex:1}
 .view-btn{width:36px;height:36px;background:var(--surface-sunken);box-shadow:none}
@@ -183,19 +183,7 @@ h1.title.sm{font-size:28px;line-height:34px;margin:0;letter-spacing:-.01em}
 .ov-sum{text-align:center;font-size:15px;line-height:20px;color:var(--ink-muted);margin-top:4px}
 .ov-sum b{color:var(--ink);font-weight:600}
 .ov-stats .range{margin-top:8px}
-.donut-wrap{position:relative;width:min(210px,58vw);margin:8px auto 0;transform-origin:50% 50%;will-change:transform,opacity}
-/* ring → bar: once the ring scrolls under the header, a slim stacked bar with the same colours slides out of the header */
-.ov-mini{position:absolute;left:0;right:0;top:100%;z-index:1;display:block;width:100%;text-align:left;border:0;color:inherit;font:inherit;
-  background:var(--surface);padding:0 max(16px,env(safe-area-inset-right,0px)) 10px max(16px,env(safe-area-inset-left,0px));
-  opacity:0;pointer-events:none}
-.ov-mini.on{pointer-events:auto}
-.ov-mini::after{content:"";position:absolute;left:0;right:0;top:100%;height:20px;pointer-events:none;
-  background:linear-gradient(to bottom,var(--surface),color-mix(in srgb,var(--surface) 0%,transparent))}
-.ov-mini .mt{display:flex;justify-content:space-between;align-items:baseline;gap:8px;max-width:640px;margin:0 auto 6px;font-size:13px;line-height:18px;color:var(--ink-muted)}
-.ov-mini .mt b{font-size:15px;line-height:20px;color:var(--ink);font-weight:600}
-.ov-mini .mbar{display:flex;gap:2px;height:8px;max-width:640px;margin:0 auto;border-radius:4px;overflow:hidden}
-.ov-mini .mbar i{display:block;min-width:2px}
-.ov-mini .mbar,.ov-mini .mt{will-change:transform}
+.donut-wrap{position:relative;width:min(210px,58vw);margin:8px auto 0}
 .donut-wrap svg{display:block;width:100%;height:auto}
 .donut-c{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none}
 .donut-c b{font-family:var(--font-rounded);font-size:28px;line-height:34px;font-weight:700;letter-spacing:-.01em}
