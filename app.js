@@ -277,7 +277,7 @@ function renderOverview(){
   const rows=Object.entries(by).map(([id,x])=>({id,...x,c:category(id)||{name:"Без категории",color:"#8E8E93",icon:"help-circle"}})).sort((a,b)=>b.v-a.v);
   const max=rows.length?rows[0].v:1;
   let h=`<main class="wrap"><div class="sticky"><div class="sticky-in"><div class="ov-head"><button class="icon-btn" data-act="settings" aria-label="Настройки">${svgI("gear")}</button>
-    <button class="acc-pick tap" data-act="accpick" data-scope="ov" aria-label="${esc(accLabel(sel))}: выбрать счета"><span class="big num${UI.hideBal?" veil":""}">${UI.hideBal?"8 888,88":nf2.format(total)}<small>€</small></span>${sel?`<span class="acc-sel">${esc(accLabel(sel))} ${svgI("chevD")}</span>`:""}</button>${eyeBtn()}</div>${sel?"":goalLine()}</div></div>`;
+    <button class="acc-pick tap" data-act="accpick" data-scope="ov" aria-label="${esc(accLabel(sel))}: выбрать счета"><span class="big num${UI.hideBal?" veil":""}">${UI.hideBal?"8 888,88":nf2.format(total)}<small>€</small></span>${sel?`<span class="acc-sel">${esc(accLabel(sel))} ${svgI("chevD")}</span>`:""}</button>${eyeBtn()}</div>${sel?"":goalLine()}</div>${ovMini(rows,sum,type,r)}</div>`;
   h+=syncBanner();
   if(!getAuth()&&!accounts().length)h+=onboardCard();
   h+=`<div class="ov-grid"><div class="ov-col">`;
@@ -303,10 +303,29 @@ function renderOverview(){
         <span class="pct num">${nf0.format(pct)}%</span><span class="amt num">${nf2.format(x.v)} €</span></button>${sub}`}).join("")+`</div>`;
   }else h+=`<div class="card empty"><b>Нет ${type==="expense"?"расходов":"доходов"} за период</b>Нажми «+», чтобы добавить.</div>`;
   h+=`</div></div></main>`;
-  after(()=>{bindCustomRange("ov");bindSwipe($("ovStats"),"ov");slideIn("#ovStats .donut-wrap,#ovCats");
+  after(()=>{bindCustomRange("ov");bindSwipe($("ovStats"),"ov");bindOvMini();slideIn("#ovStats .donut-wrap,#ovCats");
     if(bars){const g=p.kind==="custom"?"week":p.kind,bs=chartData(g,type,sel),a=periodRange(p).start,idx=bs.findIndex(b=>a>=b.start&&a<b.end);
       drawChart(bs,{mode:type,group:g,sel:idx<0?null:idx},{box:$("ovChart"),legend:$("ovLegend"),first:true,focusSel:true,onPick:i=>{UI.ov.period={...UI.ov.period,kind:g,anchor:iso(bs[i].start)};render()}})}});
   return h;
+}
+/* compact stacked bar that takes the ring's place in the header once the ring scrolls up under it */
+function ovMini(rows,sum,type,r){
+  const segs=rows.filter(x=>x.v>0).map((x,i)=>`<i style="flex:${(x.v/(sum||1)).toFixed(4)} 1 0;background:${esc(x.c.color)};--d:${Math.min(i,8)*30}ms"></i>`).join("");
+  return `<button class="ov-mini" id="ovMini" data-act="ovtop" tabindex="-1" aria-hidden="true"><span class="mt"><span>${type==="expense"?"Расходы":"Доходы"} · ${esc(r.label)}</span><b class="num">${nf2.format(sum)} €</b></span><span class="mbar">${segs||"<i style=\"flex:1;background:var(--surface-sunken)\"></i>"}</span></button>`;
+}
+let ovScroll=null;
+function bindOvMini(){
+  if(ovScroll){window.removeEventListener("scroll",ovScroll);ovScroll=null}
+  const mini=$("ovMini"),st=document.querySelector(".sticky");if(!mini||!st)return;
+  let raf=0;
+  const upd=()=>{raf=0;const a=document.querySelector("#ovStats .donut-wrap")||$("ovChart");if(!a||!a.isConnected)return;
+    const top=st.getBoundingClientRect().bottom,R=a.getBoundingClientRect();
+    // 0 while the ring is fully below the header, 1 once its middle has passed under it
+    const p=Math.max(0,Math.min(1,(top+24-R.top)/(R.height*.55)));
+    a.style.transform=p>0?`scale(${(1-.3*p).toFixed(3)})`:"";a.style.opacity=p>0?(1-.85*p).toFixed(3):"";
+    const on=p>=1;if(mini.classList.contains("on")!==on){mini.classList.toggle("on",on);mini.setAttribute("aria-hidden",String(!on));mini.tabIndex=on?0:-1}};
+  ovScroll=()=>{if(!raf)raf=requestAnimationFrame(upd)};
+  window.addEventListener("scroll",ovScroll,{passive:true});upd();
 }
 const bl=s=>String(s).replace(/[+−-]?\d(?:[\d\u00a0\u202f]*\d)?(?:[.,]\d+)?/g,m=>`<span class="vn">${m}</span>`);
 const eyeBtn=()=>`<button class="icon-btn" data-act="hidebal" aria-label="${UI.hideBal?"Показать баланс":"Скрыть баланс"}" aria-pressed="${!!UI.hideBal}">${svgI(UI.hideBal?"eyeOff":"eye")}</button>`;
@@ -1077,6 +1096,7 @@ document.addEventListener("click",e=>{
     case "ksettings":openKSettings();break;
     case "chmode":UI.ch.mode=v;UI.ch.sel=null;render();break;
     case "chgroup":UI.ch.group=v;UI.ch.sel=null;render();break;
+    case "ovtop":window.scrollTo({top:0,behavior:matchMedia("(prefers-reduced-motion:reduce)").matches?"auto":"smooth"});break;
     case "ovview":UI.ov.view=UI.ov.view==="bars"?"donut":"bars";render();break;
     case "newacc":openAccount(null);break;
     case "editacc":openAccount(v);break;
