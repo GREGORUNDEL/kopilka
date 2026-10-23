@@ -187,6 +187,36 @@ function weekStatus(mondayIso){
   return{need,w,K};
 }
 
+/* ================= weekly budget ================= */
+// Kind of an expense for the weekly budget: "monthly" bill (rent, NS, subscriptions), "daily" essential (food), "free", or "oneoff".
+function opKind(o){
+  if(o.type!=="expense")return null;if(o.oneoff)return "oneoff";
+  let k=null;const c=category(o.categoryId);
+  for(const t of o.tagIds||[]){const f=(D.tags[t]||{}).fixed;if(f==="monthly")return "monthly";if(f==="daily")k="daily"}
+  if(c&&c.fixed==="monthly")return "monthly";if(c&&c.fixed==="daily")k=k||"daily";
+  return k||"free";
+}
+function weekBudget(){
+  const today=todayMs(),mon=mondayOf(today),end=mon+7*DAY;
+  const ops=opsList().filter(o=>(o.type==="income"||o.type==="expense")&&!(account(o.accountId)||{}).exclude);
+  const first=ops.reduce((m,o)=>o.date<m?o.date:m,"9999");if(first==="9999")return null;
+  const f=parseD(first);let hs=mondayOf(f);if(f>hs)hs+=7*DAY;hs=Math.max(hs,mon-13*7*DAY);
+  const weeks=Math.max(0,Math.round((mon-hs)/(7*DAY)));
+  let hInc=0,hBills=0;const cur={inc:0,incOne:0,daily:0,free:0,monthly:0,oneoff:0,bills:[],ones:[]};
+  for(const o of ops){const t=parseD(o.date),v=opEUR(o);
+    if(t>=hs&&t<mon){if(o.type==="income"&&!o.oneoff)hInc+=v;else if(opKind(o)==="monthly")hBills+=v}
+    else if(t>=mon&&t<end){
+      if(o.type==="income"){if(o.oneoff)cur.incOne+=v;else cur.inc+=v;continue}
+      const k=opKind(o);cur[k]+=v;
+      const nm=o.comment||(o.tagIds||[]).map(x=>(D.tags[x]||{}).name).filter(Boolean)[0]||(category(o.categoryId)||{}).name||"";
+      if(k==="monthly"&&nm&&!cur.bills.includes(nm))cur.bills.push(nm);if(k==="oneoff"&&nm&&!cur.ones.includes(nm))cur.ones.push(nm)}}
+  const avgInc=weeks?hInc/weeks:cur.inc,billShare=weeks?hBills/weeks:cur.monthly;
+  const arrived=cur.inc>=avgInc*.5&&cur.inc>0,expInc=arrived?cur.inc:avgInc;
+  const K=kNow(),need=K.m?K.m.budgets[UI.budget].KAI.need:0;
+  const life=expInc-need-billShare,spent=cur.daily+cur.free;
+  return{mon,end,daysLeft:Math.max(1,Math.round((end-today)/DAY)),weeks,avgInc,billShare,arrived,expInc,need,life,spent,left:life-spent,cur,K};
+}
+
 /* ================= render: frame ================= */
 const TABS=[["overview","Обзор","home"],["ops","Операции","list"],["kopilka","Копилка","kanji"],["charts","Графики","chart"],["accounts","Счета","wallet"]];
 function renderTabs(){
@@ -236,16 +266,16 @@ function renderOverview(){
   const rows=Object.entries(by).map(([id,x])=>({id,...x,c:category(id)||{name:"Без категории",color:"#8E8E93",icon:"help-circle"}})).sort((a,b)=>b.v-a.v);
   const max=rows.length?rows[0].v:1;
   let h=`<main class="wrap"><div class="sticky"><div class="sticky-in"><div class="ov-head"><button class="icon-btn" data-act="settings" aria-label="Настройки">${svgI("gear")}</button>
-    <div class="acc-pick"><button data-act="accpick" data-scope="ov">${esc(accLabel(sel))} ${svgI("chevD")}</button><div class="big num">${nf2.format(total)}<small>€</small></div></div><span></span></div></div></div>`;
+    <div class="acc-pick"><button data-act="accpick" data-scope="ov">${esc(accLabel(sel))} ${svgI("chevD")}</button><div class="big num">${nf2.format(total)}<small>€</small></div></div><span></span></div>${sel?"":goalLine()}</div></div>`;
   h+=syncBanner();
   if(!getAuth()&&!accounts().length)h+=onboardCard();
   h+=`<div class="ov-grid"><div class="ov-col">`;
+  h+=budgetCard();
   h+=`<div class="seg" role="group" aria-label="Тип"><button data-act="ovtype" data-v="expense" aria-pressed="${type==="expense"}">Расходы</button><button data-act="ovtype" data-v="income" aria-pressed="${type==="income"}">Доходы</button></div>`;
   h+=`<section class="card">${periodControls("ov",p)}`;
   // donut
   const segs=rows.map(x=>({v:x.v,color:x.c.color}));
   h+=`<div class="donut-wrap">${donut(segs)}<div class="donut-c"><b class="num">${nf2.format(sum)} €</b><span>${type==="expense"?"расходы":"доходы"} · ${ops.length} опер.</span></div></div></section>`;
-  if(p.kind==="week")h+=weekCard(iso(r.start));
   h+=`</div><div class="ov-col">`;
   if(rows.length){
     h+=`<div class="list">`+rows.map(x=>{
@@ -261,6 +291,32 @@ function renderOverview(){
   }else h+=`<div class="card empty"><b>Нет ${type==="expense"?"расходов":"доходов"} за период</b>Нажми «+», чтобы добавить.</div>`;
   h+=`</div></div></main>`;
   after(()=>bindCustomRange("ov"));
+  return h;
+}
+function goalLine(){
+  const K=kNow();if(!K.m)return"";const g=K.m.budgets[UI.budget].KAI,p=Math.max(0,Math.min(1,g.progress));
+  return `<button class="goal-line" data-act="tab" data-v="kopilka" aria-label="Открыть Копилку"><span class="gbar"><i style="width:${(p*100).toFixed(1)}%"></i></span>
+    <span class="gtxt"><b class="num">${nf0.format(g.progress*100)}%</b> цели KAI · ещё ${eur(Math.max(0,g.goal-K.m.bal))} € · прогноз <span class="${g.fc>=0?"pos-t":"neg-t"}">${signed(g.fc)}</span></span></button>`;
+}
+function budgetCard(){
+  const B=weekBudget();if(!B)return"";const c=B.cur,neg=B.left<0;
+  const lifeW=Math.max(B.life,B.spent,1),dW=Math.max(0,c.daily)/lifeW*100,fW=Math.max(0,c.free)/lifeW*100;
+  const head=`Неделя ${dm(B.mon)}–${dm(B.end-DAY)} · ${B.daysLeft===1?"последний день":"осталось "+B.daysLeft+" "+(B.daysLeft<5?"дня":"дней")}`;
+  const row=(k,v,cls,small)=>`<div class="r"><span class="k">${k}${small?`<small>${small}</small>`:""}</span><span class="v num ${cls||""}">${v}</span></div>`;
+  let h=`<section class="card budget"><div class="sub">${head}</div>
+    <div class="b-big"><span class="num ${neg?"neg-t":""}">${eur(Math.abs(B.left))} €</span>${!neg&&B.daysLeft>1?`<span class="b-day num">≈ ${eur(B.left/B.daysLeft)} € в день</span>`:""}</div>
+    <div class="b-cap">${neg?"перерасход: неделя закроется ниже нормы":"можно потратить до воскресенья"}</div>
+    <div class="b-bar" role="img" aria-label="Потрачено ${eur(B.spent)} из ${eur(B.life)} €"><i class="d" style="width:${dW.toFixed(1)}%"></i><i class="f" style="width:${fW.toFixed(1)}%"></i></div>
+    <div class="rows">`;
+  h+=row(B.arrived?"Доход за неделю":"Доход, ожидается",(B.arrived?"+":"≈ +")+eur(B.expInc),"pos-t",B.arrived?"":`зарплаты ещё нет · обычно ${eur(B.avgInc)} €`);
+  if(B.need)h+=row("Отложить по норме KAI","−"+eur(B.need));
+  h+=row("Счета месяца, в среднем","−"+eur(B.billShare),"",c.monthly>0?`на этой неделе оплачено ${eur(c.monthly)} €`+(c.bills.length?`: ${esc(c.bills.slice(0,3).join(", "))}`:""):"аренда, NS, подписки");
+  h+=row("<b>На жизнь</b>",eur(B.life)+" €");
+  h+=row(`<i class="dot d"></i>Еда и обязательное`,"−"+eur(c.daily));
+  h+=row(`<i class="dot f"></i>Остальное`,"−"+eur(c.free));
+  h+=`</div>`;
+  const savedNow=c.inc+c.incOne-c.daily-c.free-c.monthly-c.oneoff;
+  h+=`<button class="b-foot" data-act="tab" data-v="kopilka"><span>Отложено за неделю <b class="num ${savedNow>=0?"":"neg-t"}">${signed(savedNow)} €</b>${c.oneoff>0?`<small>с учётом разовых −${eur(c.oneoff)} €${c.ones.length?": "+esc(c.ones.slice(0,2).join(", ")):""}</small>`:""}</span>${svgI("chevR")}</button></section>`;
   return h;
 }
 function syncBanner(){
@@ -702,6 +758,7 @@ function openOp(id,preset){
 function weekToast(o){
   const mon=iso(mondayOf(parseD(o.date)));const base=(o.type==="expense"?"Расход":"Доход")+" "+money(o.amount,accCur(o.accountId))+" записан";
   if(mon<ledgerStart())return base+". Неделя "+dm(parseD(mon))+" ведётся в Копилке вручную.";
+  if(mon===iso(mondayOf(todayMs()))&&o.type==="expense"&&!o.oneoff){const B=weekBudget();if(B)return base+(B.left>=0?` · на неделю осталось ${eur(B.left)} €`:` · перерасход недели ${eur(-B.left)} €`)}
   const st=weekStatus(mon);if(!st||!st.w)return base;const w=st.w,rv=reg(w),diff=rv-st.need;
   return base+` · неделя ${signed(w.saved)} €, `+(diff>=0?`выше нормы на ${eur(diff)}`:`до нормы ${eur(-diff)}`);
 }
@@ -758,13 +815,14 @@ const swatchHtml=sel=>`<div class="sw-grid">${PALETTE.map(c=>`<button data-color
 /* ---- category editor ---- */
 function openCategory(id,type,onSaved){
   const ex=id?D.categories[id]:null;
-  const st={name:ex?ex.name:"",type:ex?ex.type:type||"expense",plan:ex&&ex.plan?String(ex.plan):"",oneoff:ex?!!ex.oneoff:false,icon:ex?ex.icon:"help-circle",color:ex?ex.color:PALETTE[13],del:false};
+  const st={name:ex?ex.name:"",type:ex?ex.type:type||"expense",plan:ex&&ex.plan?String(ex.plan):"",oneoff:ex?!!ex.oneoff:false,fixed:ex&&ex.fixed||"",icon:ex?ex.icon:"help-circle",color:ex?ex.color:PALETTE[13],del:false};
   const sh=openSheet({title:ex?"Категория":"Новая категория",tall:true,right:{label:ex?"Сохранить":"Добавить",fn:save}});
   function draw(){
     sh.body.innerHTML=`<div class="preview">${catIc({icon:st.icon,color:st.color},"lg")}<div style="flex:1;min-width:0"><input class="comment" id="cname" placeholder="Название категории" value="${esc(st.name)}" maxlength="30" autocomplete="off"></div></div>
       <div class="seg"><button data-ty="expense" aria-pressed="${st.type==="expense"}">Расходы</button><button data-ty="income" aria-pressed="${st.type==="income"}">Доходы</button></div>
       <div class="form"><div class="field"><label for="cplan">${st.type==="expense"?"Планирую тратить":"Планирую получать"}<small>€ в месяц, необязательно</small></label><input id="cplan" inputmode="decimal" placeholder="не задано" value="${esc(st.plan)}"></div>
-      <div class="field"><label for="coneoff">${st.type==="expense"?"Разовая по умолчанию":"Разовый доход по умолчанию"}<small>новые операции будут отмечены разовыми</small></label><span class="switch"><input type="checkbox" id="coneoff" ${st.oneoff?"checked":""}><span></span></span></div></div>
+      <div class="field"><label for="coneoff">${st.type==="expense"?"Разовая по умолчанию":"Разовый доход по умолчанию"}<small>новые операции будут отмечены разовыми</small></label><span class="switch"><input type="checkbox" id="coneoff" ${st.oneoff?"checked":""}><span></span></span></div>
+      ${st.type==="expense"?`<div class="field"><label for="cfixed">Обязательная трата<small>счета учитываются в бюджете недели в среднем</small></label><select id="cfixed">${[["","нет"],["daily","ежедневная (еда)"],["monthly","ежемесячный счёт"]].map(([v,l])=>`<option value="${v}" ${(st.fixed||"")===v?"selected":""}>${l}</option>`).join("")}</select></div>`:""}</div>
       <p class="flabel">Цвет</p>${swatchHtml(st.color)}
       <p class="flabel">Иконка</p>${iconGridHtml(st.icon,ICON_SECTIONS)}
       ${ex?`<button class="btn danger ${st.del?"confirm":""}" data-x="del">${st.del?"Нажми ещё раз, чтобы удалить":"Удалить категорию"}</button>`:""}`;
@@ -774,10 +832,10 @@ function openCategory(id,type,onSaved){
     B.querySelectorAll("[data-icon]").forEach(b=>b.onclick=()=>{read();st.icon=b.dataset.icon;const y=B.scrollTop;draw();B.scrollTop=y});
     const d=B.querySelector('[data-x="del"]');if(d)d.onclick=()=>{read();if(!st.del){st.del=true;draw();return}D.categories[ex.id]={...ex,deleted:true,updatedAt:nowIso()};closeSheet();changed();toast("Категория удалена. Операции с ней остались.")};
   }
-  function read(){const n=$("cname"),p=$("cplan"),o=$("coneoff");if(n)st.name=n.value;if(p)st.plan=p.value;if(o)st.oneoff=o.checked}
+  function read(){const n=$("cname"),p=$("cplan"),o=$("coneoff"),fx=$("cfixed");if(n)st.name=n.value;if(p)st.plan=p.value;if(o)st.oneoff=o.checked;if(fx)st.fixed=fx.value}
   function save(){read();const name=st.name.trim();if(!name)return err(sh.body,"Введи название категории.");const plan=st.plan.trim()?num(st.plan):null;
     if(plan!=null&&!(plan>=0))return err(sh.body,"План должен быть числом.");
-    const c={...(ex||{}),id:ex?ex.id:"c"+uid(),name,type:st.type,icon:st.icon,color:st.color,plan,oneoff:st.oneoff,order:ex?ex.order:categories(st.type).length+(st.type==="income"?100:0)};
+    const c={...(ex||{}),id:ex?ex.id:"c"+uid(),name,type:st.type,icon:st.icon,color:st.color,plan,oneoff:st.oneoff,fixed:st.type==="expense"&&st.fixed?st.fixed:null,order:ex?ex.order:categories(st.type).length+(st.type==="income"?100:0)};
     put("categories",c);closeSheet();changed();if(onSaved)onSaved(c)}
   draw();
 }
@@ -791,9 +849,10 @@ function openTagList(){
   const sh=openSheet({title:"Теги",left:{label:"Закрыть"},right:{label:"Добавить",fn:()=>editTag(null)}});
   function draw(){sh.body.innerHTML=`<div class="list">${tagsList().map(t=>`<button class="row" data-t="${esc(t.id)}"><span class="ic" style="background:var(--ink-muted)">${svgI("tag")}</span><div class="mid"><div class="t">${esc(t.name)}</div><div class="s">${opsList().filter(o=>(o.tagIds||[]).includes(t.id)).length} опер.</div></div>${svgI("chevR")}</button>`).join("")||'<div class="empty">Нет тегов</div>'}</div>`;
     sh.body.querySelectorAll("[data-t]").forEach(b=>b.onclick=()=>editTag(b.dataset.t))}
-  function editTag(id){const ex=id?D.tags[id]:null;let armed=false;
-    const s2=openSheet({title:ex?"Тег":"Новый тег",right:{label:"Сохранить",fn:()=>{const v=$("tname").value.trim().slice(0,20);if(!v)return err(s2.body,"Введи имя тега.");put("tags",{...(ex||{}),id:ex?ex.id:"t"+uid(),name:v,order:ex?ex.order:tagsList().length});closeSheet();changed();draw()}}});
-    s2.body.innerHTML=`<input class="comment" id="tname" maxlength="20" placeholder="Имя тега" value="${esc(ex?ex.name:"")}" autocomplete="off"><p class="hint">До 20 символов.</p>${ex?'<button class="btn danger" id="tdel">Удалить тег</button>':""}`;
+  function editTag(id){const ex=id?D.tags[id]:null;let armed=false;const st={fixed:ex&&ex.fixed||""};
+    const s2=openSheet({title:ex?"Тег":"Новый тег",right:{label:"Сохранить",fn:()=>{const v=$("tname").value.trim().slice(0,20);if(!v)return err(s2.body,"Введи имя тега.");put("tags",{...(ex||{}),id:ex?ex.id:"t"+uid(),name:v,fixed:$("tfixed").value||null,order:ex?ex.order:tagsList().length});closeSheet();changed();draw()}}});
+    s2.body.innerHTML=`<input class="comment" id="tname" maxlength="20" placeholder="Имя тега" value="${esc(ex?ex.name:"")}" autocomplete="off"><p class="hint">До 20 символов.</p>
+      <div class="form"><div class="field"><label for="tfixed">Обязательная трата<small>важнее категории: NS в «Транспорте» — счёт</small></label><select id="tfixed">${[["","нет"],["daily","ежедневная (еда)"],["monthly","ежемесячный счёт"]].map(([v,l])=>`<option value="${v}" ${(st.fixed||"")===v?"selected":""}>${l}</option>`).join("")}</select></div></div>${ex?'<button class="btn danger" id="tdel">Удалить тег</button>':""}`;
     if(ex)$("tdel").onclick=()=>{if(!armed){armed=true;$("tdel").classList.add("confirm");$("tdel").textContent="Нажми ещё раз, чтобы удалить";return}D.tags[ex.id]={...ex,deleted:true,updatedAt:nowIso()};closeSheet();changed();draw()};
     setTimeout(()=>$("tname").focus(),300)}
   draw();stack[stack.length-1].onClose=()=>render();
