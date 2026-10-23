@@ -204,6 +204,12 @@ h1.title.sm{font-size:28px;line-height:34px;margin:0;letter-spacing:-.01em}
 .hide-bal .acc-pick .big{filter:blur(14px)}
 .hide-bal svg .vn{filter:url(#vblur)}
 .hide-bal .opt small.num,.hide-bal .vn{filter:blur(6px)}
+/* cold-launch splash: black screen, red sun with 金; pure CSS so it shows before JS loads and never on resume from background */
+#splash{position:fixed;inset:0;z-index:99999;background:#000;display:grid;place-items:center;pointer-events:none;animation:splash-out .35s ease 1.05s forwards}
+#splash .sun{width:min(46vw,200px);aspect-ratio:1;border-radius:50%;background:#e60012;display:grid;place-items:center;color:#000;font-size:min(26vw,112px);line-height:1;font-weight:700;font-family:"Hiragino Mincho ProN","Yu Mincho","Noto Serif CJK JP","Noto Serif JP","Hiragino Sans","Noto Sans CJK JP",serif;animation:splash-in .45s cubic-bezier(.2,.8,.2,1) both}
+@keyframes splash-in{from{opacity:0;transform:scale(.88)}to{opacity:1;transform:none}}
+@keyframes splash-out{to{opacity:0;visibility:hidden}}
+@media (prefers-reduced-motion:reduce){#splash .sun{animation:none}}
 /* weekly budget card */
 .b-head{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;text-align:left}
 .b-main{display:flex;align-items:center;gap:14px;min-width:0}
@@ -425,6 +431,7 @@ h1.title.sm{font-size:28px;line-height:34px;margin:0;letter-spacing:-.01em}
 </style>
 </head>
 <body>
+<div id="splash" aria-hidden="true"><div class="sun">金</div></div>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><filter id="vblur" x="-30%" y="-80%" width="160%" height="260%"><feGaussianBlur stdDeviation="4"/></filter></svg>
 <div id="vh" aria-hidden="true" style="position:fixed;inset:0;visibility:hidden;pointer-events:none;z-index:-1"></div>
 <div id="app"></div>
