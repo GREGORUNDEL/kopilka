@@ -15,6 +15,8 @@ const PALETTE=["#E04B4B","#C8442E","#DE7330","#E8873A","#D9A62E","#C9B21F","#8DB
 const ICONS=window.ICONS||{}, ICON_SECTIONS=window.ICON_SECTIONS||{};
 const UI_ICONS={
   plus:'<path d="M12 5v14M5 12h14"/>',
+  eye:'<path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0-4 0"/><path d="M21 12c-2.4 4-5.4 6-9 6c-3.6 0-6.6-2-9-6c2.4-4 5.4-6 9-6c3.6 0 6.6 2 9 6"/>',
+  eyeOff:'<path d="M10.6 10.6a2 2 0 0 0 2.8 2.8"/><path d="M16.7 16.7A8.7 8.7 0 0 1 12 18c-3.6 0-6.6-2-9-6c1.3-2.1 2.7-3.7 4.3-4.7m2.9-1.1A9 9 0 0 1 12 6c3.6 0 6.6 2 9 6c-.7 1.1-1.4 2.1-2.1 2.9"/><path d="M3 3l18 18"/>',
   gear:'<path d="M10.3 4.3c.4-1.8 3-1.8 3.4 0a1.7 1.7 0 0 0 2.6 1.1c1.5-.9 3.3.8 2.3 2.4a1.7 1.7 0 0 0 1.1 2.5c1.8.4 1.8 3 0 3.4a1.7 1.7 0 0 0-1.1 2.6c.9 1.5-.8 3.3-2.4 2.3a1.7 1.7 0 0 0-2.5 1.1c-.4 1.8-3 1.8-3.4 0a1.7 1.7 0 0 0-2.6-1.1c-1.5.9-3.3-.8-2.3-2.4a1.7 1.7 0 0 0-1.1-2.5c-1.8-.4-1.8-3 0-3.4a1.7 1.7 0 0 0 1.1-2.6c-.9-1.5.8-3.3 2.4-2.3a1.7 1.7 0 0 0 2.5-1.1z"/><circle cx="12" cy="12" r="3"/>',
   chevL:'<path d="M15 6l-6 6 6 6"/>', chevR:'<path d="M9 6l6 6-6 6"/>', chevD:'<path d="M6 9l6 6 6-6"/>',
   home:'<path d="M5 12H3l9-9 9 9h-2"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/><path d="M9 21v-6h6v6"/>',
@@ -136,11 +138,12 @@ const UI=Object.assign({tab:"overview",budget:"mine",
   ops:{filter:"all",period:{kind:"week",anchor:todayIso()},accs:null,q:"",cat:null},
   ch:{mode:"total",group:"week",accs:null,sel:null},showAllWeeks:false},loadUI());
 UI.ov.period.anchor=todayIso();UI.ops.period.anchor=todayIso();UI.ops.cat=null;UI.ops.q="";UI.ov.open=null;UI.ch.sel=null;
-/* Every launch starts from the same view: current week, all accounts, all categories (expenses on Home), income and expenses together on the chart. Tab, budget and the bars/ring view stay remembered. */
+/* Every launch starts from the same view: Home tab, current week, all accounts, all categories (expenses on Home), income and expenses together on the chart. Budget, the bars/ring view and the hidden-balance switch stay remembered. */
 UI.ov.period={kind:"week",anchor:todayIso()};UI.ov.accs=null;UI.ov.type="expense";
 UI.ops.period={kind:"week",anchor:todayIso()};UI.ops.accs=null;UI.ops.filter="all";
 UI.ch.mode="total";UI.ch.group="week";UI.ch.accs=null;
-function saveUI(){lsSet("finance.ui",JSON.stringify({tab:UI.tab,budget:UI.budget,budgetOpen:!!UI.budgetOpen,ov:{type:UI.ov.type,view:UI.ov.view,period:{kind:UI.ov.period.kind,from:UI.ov.period.from,to:UI.ov.period.to},accs:UI.ov.accs},
+UI.tab="overview"; /* the app always opens on Home */
+function saveUI(){lsSet("finance.ui",JSON.stringify({tab:UI.tab,hideBal:!!UI.hideBal,budget:UI.budget,budgetOpen:!!UI.budgetOpen,ov:{type:UI.ov.type,view:UI.ov.view,period:{kind:UI.ov.period.kind,from:UI.ov.period.from,to:UI.ov.period.to},accs:UI.ov.accs},
   ops:{filter:UI.ops.filter,period:{kind:UI.ops.period.kind,from:UI.ops.period.from,to:UI.ops.period.to},accs:UI.ops.accs},ch:{mode:UI.ch.mode,group:UI.ch.group,accs:UI.ch.accs}}))}
 
 /* ================= kopilka model ================= */
@@ -272,7 +275,7 @@ function renderOverview(){
   const rows=Object.entries(by).map(([id,x])=>({id,...x,c:category(id)||{name:"Без категории",color:"#8E8E93",icon:"help-circle"}})).sort((a,b)=>b.v-a.v);
   const max=rows.length?rows[0].v:1;
   let h=`<main class="wrap"><div class="sticky"><div class="sticky-in"><div class="ov-head"><button class="icon-btn" data-act="settings" aria-label="Настройки">${svgI("gear")}</button>
-    <div class="acc-pick"><button data-act="accpick" data-scope="ov">${esc(accLabel(sel))} ${svgI("chevD")}</button><div class="big num">${nf2.format(total)}<small>€</small></div></div><span></span></div>${sel?"":goalLine()}</div></div>`;
+    <div class="acc-pick"><button data-act="accpick" data-scope="ov">${esc(accLabel(sel))} ${svgI("chevD")}</button><div class="big num${UI.hideBal?" veil":""}">${UI.hideBal?"8 888,88":nf2.format(total)}<small>€</small></div></div><button class="icon-btn" data-act="hidebal" aria-label="${UI.hideBal?"Показать баланс":"Скрыть баланс"}" aria-pressed="${!!UI.hideBal}">${svgI(UI.hideBal?"eyeOff":"eye")}</button></div>${sel?"":goalLine()}</div></div>`;
   h+=syncBanner();
   if(!getAuth()&&!accounts().length)h+=onboardCard();
   h+=`<div class="ov-grid"><div class="ov-col">`;
@@ -305,8 +308,8 @@ function renderOverview(){
 }
 function goalLine(){
   const K=kNow();if(!K.m)return"";const g=K.m.budgets[UI.budget].KAI,p=Math.max(0,Math.min(1,g.progress));
-  return `<button class="goal-line" data-act="tab" data-v="kopilka" aria-label="Открыть Копилку"><span class="gbar"><i style="width:${(p*100).toFixed(1)}%"></i></span>
-    <span class="gtxt"><b class="num">${nf0.format(g.progress*100)}%</b> цели KAI · ещё ${eur(Math.max(0,g.goal-K.m.bal))} € · прогноз <span class="${g.fc>=0?"pos-t":"neg-t"}">${signed(g.fc)}</span></span></button>`;
+  return `<button class="goal-line" data-act="tab" data-v="kopilka" aria-label="Открыть Копилку"><span class="gbar${UI.hideBal?" veil":""}"><i style="width:${UI.hideBal?50:(p*100).toFixed(1)}%"></i></span>
+    <span class="gtxt${UI.hideBal?" veil":""}">${UI.hideBal?"<b class=\"num\">88%</b> цели KAI · ещё 88 888 € · прогноз +8 888":`<b class="num">${nf0.format(g.progress*100)}%</b> цели KAI · ещё ${eur(Math.max(0,g.goal-K.m.bal))} € · прогноз <span class="${g.fc>=0?"pos-t":"neg-t"}">${signed(g.fc)}</span>`}</span></button>`;
 }
 function budgetCard(){
   const B=weekBudget();if(!B)return"";const c=B.cur,neg=B.left<0;
@@ -604,8 +607,9 @@ function drawChart(bs,S,o){
     pop.innerHTML=`<div class="hd"><b>${esc(b.label)}${b.year?" "+b.year:""}</b>${S.group==="week"?`<span>${dm(b.start)}–${dmy(b.end-DAY)}</span>`:""}</div>`
       +row("Доходы",nf2.format(b.inc)+" €","pos-t")+row("Расходы",nf2.format(b.exp)+" €")+row(p>=0?"Отложено":"Минус",nf2.format(p)+" €",p>=0?"pos-t":"neg-t")+(Math.abs(r-p)>=1?row("Без разовых",signed(r)+" €"):"");
     inner.appendChild(pop);
-    const w=pop.offsetWidth,lo=sc.scrollLeft+4,hi2=Math.min(W,sc.scrollLeft+sc.clientWidth)-w-4;
-    let L=slot*(S.sel+.5)-w/2;L=Math.min(L,hi2);L=Math.max(L,lo);pop.style.left=L+"px";
+    /* beside the selected week, never over its bars: to the right if it fits (or if there is more room there), otherwise to the left */
+    const w=pop.offsetWidth,vl=sc.scrollLeft,vr=Math.min(W,vl+sc.clientWidth),s0=slot*S.sel,s1=slot*(S.sel+1);
+    let L=(vr-s1>=w+6||vr-s1>=s0-vl)?s1+2:s0-w-2;L=Math.max(vl+4,Math.min(L,vr-w-4));pop.style.left=L+"px";
   }
 }
 
@@ -1047,6 +1051,7 @@ document.addEventListener("click",e=>{
     case "sync":if(syncState==="auth"||syncState==="norepo"||syncState==="local")openSettings();else sync();break;
     case "syncsheet":case "settings":openSettings();break;
     case "accpick":openAccPick(sc);break;
+    case "hidebal":UI.hideBal=!UI.hideBal;render();break;
     case "ovtype":UI.ov.type=v;UI.ov.open=null;render();break;
     case "pkind":P.period={...P.period,kind:v,anchor:todayIso()};if(v==="custom"&&!P.period.from){P.period.from=iso(todayMs()-30*DAY);P.period.to=todayIso()}render();break;
     case "pshift":P.period=shiftPeriod(P.period,+v);UI.swipeDir=+v;render();break;
