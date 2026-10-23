@@ -136,6 +136,10 @@ const UI=Object.assign({tab:"overview",budget:"mine",
   ops:{filter:"all",period:{kind:"week",anchor:todayIso()},accs:null,q:"",cat:null},
   ch:{mode:"total",group:"week",accs:null,sel:null},showAllWeeks:false},loadUI());
 UI.ov.period.anchor=todayIso();UI.ops.period.anchor=todayIso();UI.ops.cat=null;UI.ops.q="";UI.ov.open=null;UI.ch.sel=null;
+/* Every launch starts from the same view: current week, all accounts, all categories (expenses on Home), income and expenses together on the chart. Tab, budget and the bars/ring view stay remembered. */
+UI.ov.period={kind:"week",anchor:todayIso()};UI.ov.accs=null;UI.ov.type="expense";
+UI.ops.period={kind:"week",anchor:todayIso()};UI.ops.accs=null;UI.ops.filter="all";
+UI.ch.mode="total";UI.ch.group="week";UI.ch.accs=null;
 function saveUI(){lsSet("finance.ui",JSON.stringify({tab:UI.tab,budget:UI.budget,budgetOpen:!!UI.budgetOpen,ov:{type:UI.ov.type,view:UI.ov.view,period:{kind:UI.ov.period.kind,from:UI.ov.period.from,to:UI.ov.period.to},accs:UI.ov.accs},
   ops:{filter:UI.ops.filter,period:{kind:UI.ops.period.kind,from:UI.ops.period.from,to:UI.ops.period.to},accs:UI.ops.accs},ch:{mode:UI.ch.mode,group:UI.ch.group,accs:UI.ch.accs}}))}
 
@@ -431,7 +435,7 @@ function renderKopilka(){
   const G=UI.ch.group||"week";
   h+=`<section class="card chart-card" id="kBarsC"><h2>Доходы и расходы</h2><div class="cap" id="barsCap">${G==="week"?(()=>{const sh=ws.slice(-13),nd=b.KAI.need;return "Выше нормы KAI без разовых: "+sh.filter(w=>reg(w)>=nd).length+" из "+sh.length+" последних недель"})():"Отложено = доходы − расходы"}</div>
     <div class="seg" role="group" aria-label="Группировка" style="margin-top:12px">${[["week","Недели"],["month","Месяцы"],["year","Годы"]].map(([k,l])=>`<button data-act="chgroup" data-v="${k}" aria-pressed="${G===k}">${l}</button>`).join("")}</div>
-    <div class="chart hs" id="barsChart"></div><div class="legend" id="barsLegend"></div><div id="barsDetail"></div></section>`;
+    <div class="chart hs" id="barsChart"></div><div class="legend" id="barsLegend"></div><p class="note" style="text-align:center">Листай график вбок. Нажми на столбец, чтобы увидеть суммы.</p></section>`;
   h+=`<section class="card chart-card" id="kRateC"><h2>Курс иены</h2><div class="cap" id="rateCap">¥ за 1 €, последние 90 дней</div><div class="chart" id="rateChart"></div>
     <div class="note">Выше курс — дешевле цель. Каждые 5 ¥ меняют цель KAI примерно на ${eur(Math.abs(goal(c[UI.budget],c.KAI,cr.rate-5,c)-goal(c[UI.budget],c.KAI,cr.rate,c)))} €.</div></section>`;
   h+=`</div></div><p class="note" style="text-align:center;margin:0 16px">Прогноз = накоплено + темп × ${m.left} нед (${m.left-c.extraPayouts} + ${c.extraPayouts} выплата) · отпускные ${eur(c.holidayEur)} € · недели с ${dmy(parseD(ledgerStart()))} считаются из операций</p></main>`;
@@ -441,7 +445,7 @@ function renderKopilka(){
 function drawJapanBars(first){
   const S={mode:"total",group:UI.ch.group||"week",sel:UI.ch.sel};const bs=chartData(S.group,"expense",null);
   if(S.sel!=null&&S.sel>=bs.length)S.sel=UI.ch.sel=null;
-  drawChart(bs,S,{box:$("barsChart"),legend:$("barsLegend"),detail:$("barsDetail"),first,onPick:i=>{UI.ch.sel=UI.ch.sel===i?null:i;drawJapanBars(false)}});
+  drawChart(bs,S,{box:$("barsChart"),legend:$("barsLegend"),pop:true,first,onPick:i=>{UI.ch.sel=UI.ch.sel===i?null:i;drawJapanBars(false)}});
 }
 function kChanges(ws,m,cr){
   if(ws.length<2)return'<div class="empty">Появится после второй недели.</div>';
@@ -591,12 +595,18 @@ function drawChart(bs,S,o){
   const sc=box.querySelector(".ch-scroll");
   if(o.focusSel&&S.sel!=null){const want=slot*(S.sel+.5)-sc.clientWidth/2;sc.scrollLeft=(!o.first&&prevX!=null&&Math.abs(prevX-want)<sc.clientWidth/2-slot)?prevX:Math.max(0,want)}
   else sc.scrollLeft=(!o.first&&prevX!=null)?prevX:sc.scrollWidth;
-  attachTip(box.querySelector(".ch-inner"),pts,null,q=>o.onPick&&o.onPick(q.i));
-  const d=o.detail;if(!d)return;
-  if(S.sel!=null&&bs[S.sel]){const b=bs[S.sel],p=b.inc-b.exp,r=reg(b);let x=`<div class="sel-detail"><div><b>${esc(b.label)}${b.year?" "+b.year:""}</b><span class="muted">${S.group==="week"?dm(b.start)+"–"+dmy(b.end-DAY):""}</span></div>`;
-    x+=`<div><span>Доходы</span><span class="num pos-t">${nf2.format(b.inc)} €</span></div><div><span>Расходы</span><span class="num">${nf2.format(b.exp)} €</span></div><div><span>${p>=0?"Отложено":"Минус"}</span><span class="num ${p>=0?"pos-t":"neg-t"}">${nf2.format(p)} €</span></div>`;
-    if(Math.abs(r-p)>=1)x+=`<div><span>Без разовых</span><span class="num">${signed(r)} €</span></div>`;
-    d.innerHTML=x+`</div>`}else d.innerHTML=`<p class="note" style="text-align:center">Листай график вбок. Нажми на столбец, чтобы увидеть суммы.</p>`;
+  const inner=box.querySelector(".ch-inner");
+  attachTip(inner,pts,null,q=>o.onPick&&o.onPick(q.i));
+  /* Floating card over the chart instead of a list below it: the page keeps its height */
+  if(o.pop&&S.mode==="total"&&S.sel!=null&&bs[S.sel]){
+    const b=bs[S.sel],p=b.inc-b.exp,r=reg(b),row=(k,v,c)=>`<div><span>${k}</span><span class="num ${c||""}">${v}</span></div>`;
+    const pop=document.createElement("div");pop.className="ch-pop";
+    pop.innerHTML=`<div class="hd"><b>${esc(b.label)}${b.year?" "+b.year:""}</b>${S.group==="week"?`<span>${dm(b.start)}–${dmy(b.end-DAY)}</span>`:""}</div>`
+      +row("Доходы",nf2.format(b.inc)+" €","pos-t")+row("Расходы",nf2.format(b.exp)+" €")+row(p>=0?"Отложено":"Минус",nf2.format(p)+" €",p>=0?"pos-t":"neg-t")+(Math.abs(r-p)>=1?row("Без разовых",signed(r)+" €"):"");
+    inner.appendChild(pop);
+    const w=pop.offsetWidth,lo=sc.scrollLeft+4,hi2=Math.min(W,sc.scrollLeft+sc.clientWidth)-w-4;
+    let L=slot*(S.sel+.5)-w/2;L=Math.min(L,hi2);L=Math.max(L,lo);pop.style.left=L+"px";
+  }
 }
 
 /* ================= ACCOUNTS tab ================= */
