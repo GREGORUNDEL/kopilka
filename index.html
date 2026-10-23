@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>Копилка</title>
 <meta name="description" content="Учёт расходов и доходов с накоплениями на Японию.">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -40,7 +40,9 @@
   --scrim:rgba(0,0,0,.6); --nav:rgba(0,0,0,.84); --bar:rgba(36,36,40,.86); --bar-edge:rgba(255,255,255,.12); --bar-shadow:0 8px 28px rgba(0,0,0,.5); color-scheme:dark }}
 
 *{box-sizing:border-box}
-html{-webkit-text-size-adjust:100%;background:var(--surface);overscroll-behavior:none;min-height:100%}
+html{-webkit-text-size-adjust:100%;background:var(--surface);overscroll-behavior:none;min-height:100%;touch-action:pan-x pan-y}
+/* no pinch or double-tap zoom: the app is laid out for the phone screen */
+body,button,a,input,select,label{touch-action:manipulation}
 /* Every page at least one screen tall: on iOS home-screen apps a short page makes the viewport shrink and the tab bar float */
 body{min-height:calc(100vh + 1px);min-height:calc(100lvh + 1px)}
 [hidden]{display:none!important}
@@ -304,7 +306,7 @@ h1.title.sm{font-size:28px;line-height:34px;margin:0;letter-spacing:-.01em}
 .dchip b{display:block;font-size:15px;line-height:20px;color:var(--ink)}
 .dchip[aria-pressed="true"]{border-color:var(--ai);color:var(--ai)}
 .dchip[aria-pressed="true"] b{color:var(--ai)}
-.dchip input{border:0;background:transparent;font-size:15px;width:9.2em;color:inherit}
+.dchip input{border:0;background:transparent;font-size:16px;width:9.2em;color:inherit}
 .tags{display:flex;flex-wrap:wrap;gap:8px}
 .tag{border-radius:999px;padding:7px 14px;font-size:15px;line-height:20px;border:1.5px solid transparent;background:var(--surface-raised)}
 .tag[aria-pressed="true"]{border-color:var(--ai);background:var(--ai-soft);color:var(--ai);font-weight:600}

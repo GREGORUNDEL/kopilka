@@ -1040,6 +1040,9 @@ document.addEventListener("focusout",e=>{if(/INPUT|TEXTAREA|SELECT/.test(e.targe
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")setTimeout(healViewport,300)});
 
 /* ================= start ================= */
+// iOS Safari ignores user-scalable=no, so block its pinch gestures directly
+["gesturestart","gesturechange","gestureend"].forEach(t=>document.addEventListener(t,e=>e.preventDefault(),{passive:false}));
+document.addEventListener("touchmove",e=>{if(e.touches&&e.touches.length>1)e.preventDefault()},{passive:false});
 render();
 if(getAuth())setStatus(navigator.onLine?"ok":"offline");
 fetchRates(false);sync();
