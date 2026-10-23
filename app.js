@@ -353,8 +353,9 @@ function catIc(c,cls){return `<span class="ic ${cls||""}" style="background:${es
 function donut(segs,sweep){
   const R=50,W=18,C=2*Math.PI*R,total=segs.reduce((a,s)=>a+s.v,0),ro=R+W/2,ri=R-W/2,GAP=2.2,RND=5;
   const pt=(r,a)=>`${(60+r*Math.sin(a)).toFixed(3)} ${(60-r*Math.cos(a)).toFixed(3)}`;
-  let s=`<svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="${R}" fill="none" stroke="var(--surface-sunken)" stroke-width="${W}"/>`;
   const live=segs.filter(g=>g.v>0);
+  // the grey track only for an empty period; with data the gaps between segments show the card itself
+  let s=`<svg viewBox="0 0 120 120">${total>0?"":`<circle cx="60" cy="60" r="${R}" fill="none" stroke="var(--surface-sunken)" stroke-width="${W}"/>`}`;
   if(total>0&&live.length===1)s+=`<circle cx="60" cy="60" r="${R}" fill="none" stroke="${esc(live[0].color)}" stroke-width="${W}"/>`;
   else if(total>0){let a0=0;
     for(const g of live){const da=g.v/total*2*Math.PI,a1=a0+da,avail=da*R-GAP;
@@ -366,7 +367,7 @@ function donut(segs,sweep){
       else{const m=(a0+a1)/2,hw=Math.max(.3,(avail)/2)/R; // a sliver too small to round
         s+=`<path d="M${pt(ro,m-hw)}A${ro} ${ro} 0 0 1 ${pt(ro,m+hw)}L${pt(ri,m+hw)}A${ri} ${ri} 0 0 0 ${pt(ri,m-hw)}Z" fill="${esc(g.color)}"/>`}
       a0=a1}}
-  if(sweep&&total>0&&!reduceMotion())s+=`<circle class="ring-cover" cx="60" cy="60" r="${R}" fill="none" stroke="var(--surface-sunken)" stroke-width="${W+1.5}" stroke-dasharray="${C.toFixed(2)} ${C.toFixed(2)}" transform="rotate(-90 60 60)" style="animation-delay:${splashLeft()}ms"/>`;
+  if(sweep&&total>0&&!reduceMotion())s+=`<circle class="ring-cover" cx="60" cy="60" r="${R}" fill="none" stroke="var(--surface-raised)" stroke-width="${W+1.5}" stroke-dasharray="${C.toFixed(2)} ${C.toFixed(2)}" transform="rotate(-90 60 60)" style="animation-delay:${splashLeft()}ms"/>`;
   return s+`</svg>`;
 }
 /* ================= motion ================= */
