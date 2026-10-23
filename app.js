@@ -143,7 +143,8 @@ UI.ov.period={kind:"week",anchor:todayIso()};UI.ov.accs=null;UI.ov.type="expense
 UI.ops.period={kind:"week",anchor:todayIso()};UI.ops.accs=null;UI.ops.filter="all";
 UI.ch.mode="total";UI.ch.group="week";UI.ch.accs=null;
 UI.tab="overview"; /* the app always opens on Home */
-function saveUI(){lsSet("finance.ui",JSON.stringify({tab:UI.tab,hideBal:!!UI.hideBal,budget:UI.budget,budgetOpen:!!UI.budgetOpen,ov:{type:UI.ov.type,view:UI.ov.view,period:{kind:UI.ov.period.kind,from:UI.ov.period.from,to:UI.ov.period.to},accs:UI.ov.accs},
+UI.budgetOpen=false; /* the week card always starts folded */
+function saveUI(){lsSet("finance.ui",JSON.stringify({tab:UI.tab,hideBal:!!UI.hideBal,budget:UI.budget,ov:{type:UI.ov.type,view:UI.ov.view,period:{kind:UI.ov.period.kind,from:UI.ov.period.from,to:UI.ov.period.to},accs:UI.ov.accs},
   ops:{filter:UI.ops.filter,period:{kind:UI.ops.period.kind,from:UI.ops.period.from,to:UI.ops.period.to},accs:UI.ops.accs},ch:{mode:UI.ch.mode,group:UI.ch.group,accs:UI.ch.accs}}))}
 
 /* ================= kopilka model ================= */
@@ -280,7 +281,6 @@ function renderOverview(){
   h+=syncBanner();
   if(!getAuth()&&!accounts().length)h+=onboardCard();
   h+=`<div class="ov-grid"><div class="ov-col">`;
-  h+=budgetCard();
   const bars=S.view==="bars";
   h+=`<section class="card ov-stats" id="ovStats"><div class="ov-top"><div class="seg" role="group" aria-label="Тип"><button data-act="ovtype" data-v="expense" aria-pressed="${type==="expense"}">Расходы</button><button data-act="ovtype" data-v="income" aria-pressed="${type==="income"}">Доходы</button></div>
     <button class="icon-btn view-btn" data-act="ovview" aria-label="${bars?"Показать кольцо":"Показать динамику по периодам"}" title="${bars?"Кольцо":"Динамика"}">${svgI(bars?"donut":"chart")}</button></div>${periodControls("ov",p)}`;
@@ -288,6 +288,7 @@ function renderOverview(){
   const segs=rows.map(x=>({v:x.v,color:x.c.color}));
   if(bars)h+=`<div class="ov-sum"><b class="num">${nf2.format(sum)} €</b> ${type==="expense"?"расходы":"доходы"} · ${ops.length} опер.</div><div class="chart hs" id="ovChart"></div><div class="legend" id="ovLegend"></div></section>`;
   else h+=`<div class="donut-wrap">${donut(segs)}<div class="donut-c"><b class="num">${nf2.format(sum)} €</b><span>${type==="expense"?"расходы":"доходы"} · ${ops.length} опер.</span></div></div></section>`;
+  h+=budgetCard();
   h+=`</div><div class="ov-col">`;
   if(rows.length){
     h+=`<div class="list" id="ovCats">`+rows.map(x=>{
@@ -1050,7 +1051,7 @@ document.addEventListener("click",e=>{
   const a=el.dataset.act,v=el.dataset.v,sc=el.dataset.scope;
   const P=sc==="ov"?UI.ov:UI.ops;
   switch(a){
-    case "tab":UI.tab=v;window.scrollTo(0,0);render();break;
+    case "tab":UI.tab=v;UI.budgetOpen=false;window.scrollTo(0,0);render();break;
     case "sync":if(syncState==="auth"||syncState==="norepo"||syncState==="local")openSettings();else sync();break;
     case "syncsheet":case "settings":openSettings();break;
     case "accpick":openAccPick(sc);break;
@@ -1098,7 +1099,8 @@ window.addEventListener("resize",()=>{if(window.innerHeight>maxVH)maxVH=window.i
 function healViewport(){if(window.innerHeight>=maxVH-4)return;const y=window.scrollY,el=$("vh");if(!el)return;
   el.style.display="none";void el.offsetHeight;el.style.display="";const b=document.body;b.style.display="none";void b.offsetHeight;b.style.display="";window.scrollTo(0,y)}
 document.addEventListener("focusout",e=>{if(/INPUT|TEXTAREA|SELECT/.test(e.target.tagName))setTimeout(healViewport,160)});
-document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")setTimeout(healViewport,300)});
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")setTimeout(healViewport,300);
+  else if(UI.budgetOpen){UI.budgetOpen=false;if(UI.tab==="overview")render()}});
 
 /* ================= start ================= */
 // iOS Safari ignores user-scalable=no, so block its pinch gestures directly
