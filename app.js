@@ -227,9 +227,13 @@ function weekBudget(){
 }
 
 /* ================= render: frame ================= */
-const TABS=[["overview","Главная","home"],["ops","Операции","list"],["kopilka","Япония","kanji"],["accounts","Счета","wallet"]];
+/* PRIVATE SHOW MODE. While true, nothing in the app says what the savings are for: the Japan tab becomes «Цель»,
+   the splash and the yen rate are gone, and every mention of Japan, the schools, yen or Japanese study is blurred
+   wherever it appears (screens, sheets, toasts, charts). There is deliberately no switch in the app; set to false to undo. */
+const PRIVATE=true;
+const TABS=[["overview","Главная","home"],["ops","Операции","list"],["kopilka",PRIVATE?"Цель":"Япония",PRIVATE?"pig":"kanji"],["accounts","Счета","wallet"]];
 function renderTabs(){
-  $("tabs").innerHTML=TABS.map(([id,label,ic])=>`<button class="tab" data-act="tab" data-v="${id}" ${UI.tab===id?'aria-current="page"':""}>${ic==="kanji"?'<span class="kanji">貯</span>':svgI(ic)}<span>${label}</span></button>`).join("");
+  $("tabs").innerHTML=TABS.map(([id,label,ic])=>`<button class="tab" data-act="tab" data-v="${id}" ${UI.tab===id?'aria-current="page"':""}>${ic==="kanji"?'<span class="kanji">貯</span>':ic==="pig"?icon("pig-money"):svgI(ic)}<span>${label}</span></button>`).join("");
   $("fab").innerHTML=svgI("plus");$("fab").hidden=!(UI.tab==="overview"||UI.tab==="ops"||UI.tab==="accounts");$("fab").setAttribute("aria-label",UI.tab==="accounts"?"Добавить счёт":"Добавить операцию");
 }
 function topBar(left,right){
@@ -384,7 +388,19 @@ const splashLeft=()=>{const sp=document.getElementById("splash");if(!sp||!sp.get
   return Math.max(0,Math.round(1050-(an.currentTime||0)+120))};
 const M={vals:{},bars:{},rings:{},ringKey:null,lastTab:null,expand:null};
 const FMT={nf2:v=>nf2.format(v),eur:v=>eur(v),pct:v=>nf0.format(v)+"%"};
-document.addEventListener("touchstart",()=>{},{passive:true}); // lets iOS Safari show :active press states
+document.addEventListener("touchstart",()=>{},{passive:true});
+/* private show mode: blur every Japan-related word as soon as it lands in the page */
+const REDACT=/(KAI|SNG|JLPT|N5|Bunpro|Genki|[Пп]ереезд\S*|[Яя]пон\S*|[Ии]ен[аыуеой]\S*|あと|貯|[\d\u00a0\u202f ,.]*¥[\d\u00a0\u202f ,.]*(?:\/мес)?)/g;
+function redactNode(n){
+  if(n.nodeType===3){const t=n.nodeValue;REDACT.lastIndex=0;if(!t||!REDACT.test(t))return;const p=n.parentNode;if(!p||p.closest&&p.closest(".redact"))return;
+    if(p.namespaceURI==="http://www.w3.org/2000/svg"){p.classList.add("redact-svg");return}
+    REDACT.lastIndex=0;const f=document.createDocumentFragment();let last=0,m;
+    while((m=REDACT.exec(t))){if(!m[0].trim())continue;f.append(t.slice(last,m.index));const s=document.createElement("span");s.className="redact";s.textContent=m[0];f.append(s);last=m.index+m[0].length}
+    f.append(t.slice(last));p.replaceChild(f,n);return}
+  if(n.nodeType===1&&!n.classList.contains("redact")){if(n.matches&&n.matches("input,textarea"))return;[...n.childNodes].forEach(redactNode)}}
+if(PRIVATE){document.documentElement.classList.add("private");
+  const run=()=>{redactNode(document.body);new MutationObserver(ms=>{for(const m of ms){if(m.type==="characterData")redactNode(m.target);else m.addedNodes.forEach(redactNode)}}).observe(document.body,{childList:true,subtree:true,characterData:true})};
+  document.body?run():document.addEventListener("DOMContentLoaded",run)} // lets iOS Safari show :active press states
 function rollNum(el,from,to,fmt,dur){const t0=performance.now();
   const step=t=>{if(!el.isConnected)return;const k=Math.min(1,(t-t0)/dur),e=1-Math.pow(1-k,3);el.textContent=fmt(from+(to-from)*e);if(k<1)requestAnimationFrame(step)};
   requestAnimationFrame(step)}
@@ -477,7 +493,7 @@ function bindCustomRange(scope){
 /* ================= KOPILKA ================= */
 function renderKopilka(){
   const K=kNow(),c=kcfg(),ws=K.ws,cr=K.r,m=K.m;
-  let h=`<main class="wrap"><header class="head"><div><h1 class="title">Япония</h1><div class="sub">${ws.length?(()=>{const lm=parseD(ws[ws.length-1].monday);return "Неделя "+dm(lm)+"–"+dmy(lm+6*DAY)})():"Нет недель"}</div></div>
+  let h=`<main class="wrap"><header class="head"><div><h1 class="title">${PRIVATE?"Цель":"Япония"}</h1><div class="sub">${ws.length?(()=>{const lm=parseD(ws[ws.length-1].monday);return "Неделя "+dm(lm)+"–"+dmy(lm+6*DAY)})():"Нет недель"}</div></div>
     <div style="display:flex;align-items:center;gap:12px">${eyeBtn()}<button class="icon-btn" data-act="ksettings" aria-label="Настройки Копилки">${svgI("gear")}</button><div class="hanko" aria-hidden="true">貯</div></div></header>`;
   if(ws.length&&!cr)h+=`<div class="banner">Нет курса иены. Подключись к интернету или укажи курс вручную в настройках Копилки.</div>`;
   if(!m){h+=`<div class="card empty"><b>Пока нечего считать</b>Добавь неделю или операции.</div></main>`;return h}
@@ -1139,7 +1155,7 @@ document.addEventListener("click",e=>{
     case "kweek":openKWeek(v||null);break;
     case "weekops":UI.ops={...UI.ops,filter:"all",period:{kind:"week",anchor:v},accs:null,cat:null,q:""};UI.tab="ops";window.scrollTo(0,0);render();break;
     case "allweeks":UI.showAllWeeks=!UI.showAllWeeks;render();break;
-    case "ksettings":openKSettings();break;
+    case "ksettings":if(PRIVATE){toast("Настройки цели сейчас недоступны");break}openKSettings();break;
     case "chmode":UI.ch.mode=v;UI.ch.sel=null;render();break;
     case "chgroup":UI.ch.group=v;UI.ch.sel=null;render();break;
     case "ovview":UI.ov.view=UI.ov.view==="bars"?"donut":"bars";render();break;
