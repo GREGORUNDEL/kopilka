@@ -24,7 +24,7 @@ const UI_ICONS={
   donut:'<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4"/><path d="M12 3.5v4.5M20.2 9.5l-4.4 1.4"/>',
   chart:'<path d="M3 3v18h18"/><path d="M7 15v2M11 11v6M15 7v10M19 13v4"/>',
   wallet:'<path d="M17 8V5a1 1 0 0 0-1-1H6a2 2 0 0 0 0 4h12a1 1 0 0 1 1 1v3m0 4v3a1 1 0 0 1-1 1H6a2 2 0 0 1-2-2V6"/><path d="M20 12v4h-4a2 2 0 0 1 0-4h4"/>',
-  swap:'<path d="M7 10h14l-4-4M17 14H3l4 4"/>', history:'<path d="M12 8v4l2 2"/><path d="M3.05 11a9 9 0 1 1 .5 4M3 4v5h5"/>',
+  swap:'<path d="M7 10h14l-4-4M17 14H3l4 4"/>', history:'<path d="M12 8v4l2 2"/><path d="M3.05 11a9 9 0 1 1 .5 4M3 20v-5h5"/>',
   search:'<circle cx="10" cy="10" r="7"/><path d="M21 21l-6-6"/>', check:'<path d="M5 12l5 5L20 7"/>',
   kbd:'<path d="M6 9l6 6 6-6"/>', back:'<path d="M20 6H9l-6 6 6 6h11a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1z"/><path d="M12 10l4 4M16 10l-4 4"/>',
   adjust:'<path d="M4 20h4L18.5 9.5a2.8 2.8 0 0 0-4-4L4 16v4"/><path d="M13.5 6.5l4 4"/>', tag:'<path d="M7.5 7.5h.01"/><path d="M3 6v5.2a2 2 0 0 0 .6 1.4l8.8 8.8a2 2 0 0 0 2.8 0l5.2-5.2a2 2 0 0 0 0-2.8L11.6 4.6A2 2 0 0 0 10.2 4H5a2 2 0 0 0-2 2z"/>',
