@@ -19,6 +19,7 @@ const UI_ICONS={
   chevL:'<path d="M15 6l-6 6 6 6"/>', chevR:'<path d="M9 6l6 6-6 6"/>', chevD:'<path d="M6 9l6 6 6-6"/>',
   home:'<path d="M5 12H3l9-9 9 9h-2"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/><path d="M9 21v-6h6v6"/>',
   list:'<path d="M9 6h11M9 12h11M9 18h11M5 6v.01M5 12v.01M5 18v.01"/>',
+  donut:'<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4"/><path d="M12 3.5v4.5M20.2 9.5l-4.4 1.4"/>',
   chart:'<path d="M3 3v18h18"/><path d="M7 15v2M11 11v6M15 7v10M19 13v4"/>',
   wallet:'<path d="M17 8V5a1 1 0 0 0-1-1H6a2 2 0 0 0 0 4h12a1 1 0 0 1 1 1v3m0 4v3a1 1 0 0 1-1 1H6a2 2 0 0 1-2-2V6"/><path d="M20 12v4h-4a2 2 0 0 1 0-4h4"/>',
   swap:'<path d="M7 10h14l-4-4M17 14H3l4 4"/>', history:'<path d="M12 8v4l2 2"/><path d="M3.05 11a9 9 0 1 1 .5 4M3 4v5h5"/>',
@@ -135,7 +136,7 @@ const UI=Object.assign({tab:"overview",budget:"mine",
   ops:{filter:"all",period:{kind:"week",anchor:todayIso()},accs:null,q:"",cat:null},
   ch:{mode:"total",group:"week",accs:null,sel:null},showAllWeeks:false},loadUI());
 UI.ov.period.anchor=todayIso();UI.ops.period.anchor=todayIso();UI.ops.cat=null;UI.ops.q="";UI.ov.open=null;UI.ch.sel=null;
-function saveUI(){lsSet("finance.ui",JSON.stringify({tab:UI.tab,budget:UI.budget,budgetOpen:!!UI.budgetOpen,ov:{type:UI.ov.type,period:{kind:UI.ov.period.kind,from:UI.ov.period.from,to:UI.ov.period.to},accs:UI.ov.accs},
+function saveUI(){lsSet("finance.ui",JSON.stringify({tab:UI.tab,budget:UI.budget,budgetOpen:!!UI.budgetOpen,ov:{type:UI.ov.type,view:UI.ov.view,period:{kind:UI.ov.period.kind,from:UI.ov.period.from,to:UI.ov.period.to},accs:UI.ov.accs},
   ops:{filter:UI.ops.filter,period:{kind:UI.ops.period.kind,from:UI.ops.period.from,to:UI.ops.period.to},accs:UI.ops.accs},ch:{mode:UI.ch.mode,group:UI.ch.group,accs:UI.ch.accs}}))}
 
 /* ================= kopilka model ================= */
@@ -218,7 +219,7 @@ function weekBudget(){
 }
 
 /* ================= render: frame ================= */
-const TABS=[["overview","Обзор","home"],["ops","Операции","list"],["kopilka","Копилка","kanji"],["charts","Графики","chart"],["accounts","Счета","wallet"]];
+const TABS=[["overview","Главная","home"],["ops","Операции","list"],["kopilka","Япония","kanji"],["accounts","Счета","wallet"]];
 function renderTabs(){
   $("tabs").innerHTML=TABS.map(([id,label,ic])=>`<button class="tab" data-act="tab" data-v="${id}" ${UI.tab===id?'aria-current="page"':""}>${ic==="kanji"?'<span class="kanji">貯</span>':svgI(ic)}<span>${label}</span></button>`).join("");
   $("fab").innerHTML=svgI("plus");$("fab").hidden=!(UI.tab==="overview"||UI.tab==="ops"||UI.tab==="accounts");$("fab").setAttribute("aria-label",UI.tab==="accounts"?"Добавить счёт":"Добавить операцию");
@@ -229,8 +230,9 @@ function topBar(left,right){
     ${right||'<span style="width:36px"></span>'}</div></div>`;
 }
 function render(){
+  if(UI.tab==="charts")UI.tab="kopilka";
   renderTabs();
-  const fn={overview:renderOverview,ops:renderOps,kopilka:renderKopilka,charts:renderCharts,accounts:renderAccounts}[UI.tab]||renderOverview;
+  const fn={overview:renderOverview,ops:renderOps,kopilka:renderKopilka,accounts:renderAccounts}[UI.tab]||renderOverview;
   $("app").innerHTML=`<div class="page">${fn()}</div>`;
   bindAfter();
   saveUI();
@@ -271,10 +273,13 @@ function renderOverview(){
   if(!getAuth()&&!accounts().length)h+=onboardCard();
   h+=`<div class="ov-grid"><div class="ov-col">`;
   h+=budgetCard();
-  h+=`<section class="card ov-stats" id="ovStats"><div class="seg" role="group" aria-label="Тип"><button data-act="ovtype" data-v="expense" aria-pressed="${type==="expense"}">Расходы</button><button data-act="ovtype" data-v="income" aria-pressed="${type==="income"}">Доходы</button></div>${periodControls("ov",p)}`;
+  const bars=S.view==="bars";
+  h+=`<section class="card ov-stats" id="ovStats"><div class="ov-top"><div class="seg" role="group" aria-label="Тип"><button data-act="ovtype" data-v="expense" aria-pressed="${type==="expense"}">Расходы</button><button data-act="ovtype" data-v="income" aria-pressed="${type==="income"}">Доходы</button></div>
+    <button class="icon-btn view-btn" data-act="ovview" aria-label="${bars?"Показать кольцо":"Показать динамику по периодам"}" title="${bars?"Кольцо":"Динамика"}">${svgI(bars?"donut":"chart")}</button></div>${periodControls("ov",p)}`;
   // donut
   const segs=rows.map(x=>({v:x.v,color:x.c.color}));
-  h+=`<div class="donut-wrap">${donut(segs)}<div class="donut-c"><b class="num">${nf2.format(sum)} €</b><span>${type==="expense"?"расходы":"доходы"} · ${ops.length} опер.</span></div></div></section>`;
+  if(bars)h+=`<div class="ov-sum"><b class="num">${nf2.format(sum)} €</b> ${type==="expense"?"расходы":"доходы"} · ${ops.length} опер.</div><div class="chart hs" id="ovChart"></div><div class="legend" id="ovLegend"></div></section>`;
+  else h+=`<div class="donut-wrap">${donut(segs)}<div class="donut-c"><b class="num">${nf2.format(sum)} €</b><span>${type==="expense"?"расходы":"доходы"} · ${ops.length} опер.</span></div></div></section>`;
   h+=`</div><div class="ov-col">`;
   if(rows.length){
     h+=`<div class="list" id="ovCats">`+rows.map(x=>{
@@ -289,7 +294,9 @@ function renderOverview(){
         <span class="pct num">${nf0.format(pct)}%</span><span class="amt num">${nf2.format(x.v)} €</span></button>${sub}`}).join("")+`</div>`;
   }else h+=`<div class="card empty"><b>Нет ${type==="expense"?"расходов":"доходов"} за период</b>Нажми «+», чтобы добавить.</div>`;
   h+=`</div></div></main>`;
-  after(()=>{bindCustomRange("ov");bindSwipe($("ovStats"),"ov");slideIn("#ovStats .donut-wrap,#ovCats")});
+  after(()=>{bindCustomRange("ov");bindSwipe($("ovStats"),"ov");slideIn("#ovStats .donut-wrap,#ovCats");
+    if(bars){const g=p.kind==="custom"?"week":p.kind,bs=chartData(g,type,sel),a=periodRange(p).start,idx=bs.findIndex(b=>a>=b.start&&a<b.end);
+      drawChart(bs,{mode:type,group:g,sel:idx<0?null:idx},{box:$("ovChart"),legend:$("ovLegend"),first:true,focusSel:true,onPick:i=>{UI.ov.period={...UI.ov.period,kind:g,anchor:iso(bs[i].start)};render()}})}});
   return h;
 }
 function goalLine(){
@@ -336,26 +343,6 @@ function donut(segs){
       s+=`<circle cx="60" cy="60" r="${R}" fill="none" stroke="${esc(g.color)}" stroke-width="14" stroke-dasharray="${l.toFixed(2)} ${(C-l).toFixed(2)}" stroke-dashoffset="${(-off).toFixed(2)}" transform="rotate(-90 60 60)"/>`;off+=len}}
   return s+`</svg>`;
 }
-function weekCard(mondayIso){
-  const st=weekStatus(mondayIso);const mon=parseD(mondayIso);
-  const L=weekLedger(mon);
-  const legacy=mondayIso<ledgerStart();
-  let saved=L.saved,regv=L.saved+L.oneoff-L.income,inc=L.inc,exp=L.exp;
-  if(legacy&&st&&st.w){saved=st.w.saved;regv=reg(st.w)}
-  const need=st?st.need:null;
-  const C=2*Math.PI*26,p=need>0?Math.max(0,Math.min(1,regv/need)):0;
-  const col=need&&regv>=need?"var(--matsu)":"var(--ai)";
-  let note="";
-  if(need!=null){const diff=regv-need;
-    note=(legacy?"Неделя ведётся вручную в Копилке. ":"")+`Норма KAI ${eur(need)} € · `+(diff>=0?`выше на ${eur(diff)} €`:`не хватает ${eur(-diff)} €`)+
-      (Math.abs(regv-saved)>=1?` · без разовых ${signed(regv)} €`:"")}
-  return `<button class="card week-card" data-act="tab" data-v="kopilka" aria-label="Открыть Копилку">
-    <svg class="ring" viewBox="0 0 64 64"><circle class="track" cx="32" cy="32" r="26"/><circle class="fill" cx="32" cy="32" r="26" stroke="${col}" stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${(C*(1-p)).toFixed(1)}"/><text x="32" y="33">${need?nf0.format(regv/need*100)+"%":"貯"}</text></svg>
-    <div class="wk-stats">${legacy?`<div><b class="num">—</b><span>доходы</span></div><div><b class="num">—</b><span>расходы</span></div>`:`<div><b class="num pos-t">${eur(inc)}</b><span>доходы</span></div><div><b class="num">${eur(exp)}</b><span>расходы</span></div>`}
-      <div><b class="num ${saved>=0?"":"neg-t"}">${signed(saved)}</b><span>отложено</span></div></div>
-    ${note?`<div class="wk-note">${esc(note)}</div>`:""}</button>`;
-}
-
 /* ================= OPERATIONS ================= */
 function renderOps(){
   const S=UI.ops,p=S.period,r=periodRange(p);const sel=S.accs&&S.accs.length?S.accs:null;
@@ -419,7 +406,7 @@ function bindCustomRange(scope){
 /* ================= KOPILKA ================= */
 function renderKopilka(){
   const K=kNow(),c=kcfg(),ws=K.ws,cr=K.r,m=K.m;
-  let h=`<main class="wrap"><header class="head"><div><h1 class="title">Копилка</h1><div class="sub">${ws.length?(()=>{const lm=parseD(ws[ws.length-1].monday);return "Неделя "+dm(lm)+"–"+dmy(lm+6*DAY)})():"Нет недель"}</div></div>
+  let h=`<main class="wrap"><header class="head"><div><h1 class="title">Япония</h1><div class="sub">${ws.length?(()=>{const lm=parseD(ws[ws.length-1].monday);return "Неделя "+dm(lm)+"–"+dmy(lm+6*DAY)})():"Нет недель"}</div></div>
     <div style="display:flex;align-items:center;gap:12px"><button class="icon-btn" data-act="ksettings" aria-label="Настройки Копилки">${svgI("gear")}</button><div class="hanko" aria-hidden="true">貯</div></div></header>`;
   if(ws.length&&!cr)h+=`<div class="banner">Нет курса иены. Подключись к интернету или укажи курс вручную в настройках Копилки.</div>`;
   if(!m){h+=`<div class="card empty"><b>Пока нечего считать</b>Добавь неделю или операции.</div></main>`;return h}
@@ -441,12 +428,20 @@ function renderKopilka(){
   h+=`<section id="kWeeks"><p class="section-label">Недели</p><div class="list flat">${kWeekList(ws)}</div></section>`;
   h+=`</div><div class="kcol">`;
   h+=`<section class="card chart-card" id="kPathC"><h2>Путь к цели</h2><div class="cap" id="pathCap"></div><div class="chart" id="pathChart"></div><div class="legend" id="pathLegend"></div></section>`;
-  h+=`<section class="card chart-card" id="kBarsC"><h2>Недели</h2><div class="cap" id="barsCap"></div><div class="chart" id="barsChart"></div><div class="legend" id="barsLegend"></div></section>`;
+  const G=UI.ch.group||"week";
+  h+=`<section class="card chart-card" id="kBarsC"><h2>Доходы и расходы</h2><div class="cap" id="barsCap">${G==="week"?(()=>{const sh=ws.slice(-13),nd=b.KAI.need;return "Выше нормы KAI без разовых: "+sh.filter(w=>reg(w)>=nd).length+" из "+sh.length+" последних недель"})():"Отложено = доходы − расходы"}</div>
+    <div class="seg" role="group" aria-label="Группировка" style="margin-top:12px">${[["week","Недели"],["month","Месяцы"],["year","Годы"]].map(([k,l])=>`<button data-act="chgroup" data-v="${k}" aria-pressed="${G===k}">${l}</button>`).join("")}</div>
+    <div class="chart hs" id="barsChart"></div><div class="legend" id="barsLegend"></div><div id="barsDetail"></div></section>`;
   h+=`<section class="card chart-card" id="kRateC"><h2>Курс иены</h2><div class="cap" id="rateCap">¥ за 1 €, последние 90 дней</div><div class="chart" id="rateChart"></div>
     <div class="note">Выше курс — дешевле цель. Каждые 5 ¥ меняют цель KAI примерно на ${eur(Math.abs(goal(c[UI.budget],c.KAI,cr.rate-5,c)-goal(c[UI.budget],c.KAI,cr.rate,c)))} €.</div></section>`;
   h+=`</div></div><p class="note" style="text-align:center;margin:0 16px">Прогноз = накоплено + темп × ${m.left} нед (${m.left-c.extraPayouts} + ${c.extraPayouts} выплата) · отпускные ${eur(c.holidayEur)} € · недели с ${dmy(parseD(ledgerStart()))} считаются из операций</p></main>`;
-  after(()=>{kPath(ws,m);kBars(ws,m);kRate()});
+  after(()=>{kPath(ws,m);kRate();drawJapanBars(true)});
   return h;
+}
+function drawJapanBars(first){
+  const S={mode:"total",group:UI.ch.group||"week",sel:UI.ch.sel};const bs=chartData(S.group,"expense",null);
+  if(S.sel!=null&&S.sel>=bs.length)S.sel=UI.ch.sel=null;
+  drawChart(bs,S,{box:$("barsChart"),legend:$("barsLegend"),detail:$("barsDetail"),first,onPick:i=>{UI.ch.sel=UI.ch.sel===i?null:i;drawJapanBars(false)}});
 }
 function kChanges(ws,m,cr){
   if(ws.length<2)return'<div class="empty">Появится после второй недели.</div>';
@@ -518,25 +513,6 @@ function kPath(ws,m){
 function barPath(cx,bw,Y,v){const y0=Y(0),y1=Y(v),top=Math.min(y0,y1),h=Math.max(1,Math.abs(y1-y0)),r=Math.min(4,h/2,bw/2);
   return v>=0?`M${cx-bw/2} ${y0} V${top+r} Q${cx-bw/2} ${top} ${cx-bw/2+r} ${top} H${cx+bw/2-r} Q${cx+bw/2} ${top} ${cx+bw/2} ${top+r} V${y0} Z`
     :`M${cx-bw/2} ${y0} V${top+h-r} Q${cx-bw/2} ${top+h} ${cx-bw/2+r} ${top+h} H${cx+bw/2-r} Q${cx+bw/2} ${top+h} ${cx+bw/2} ${top+h-r} V${y0} Z`}
-function kBars(ws,m){
-  const W=340,H=180,L0=34,R=8,T=12,B=22,show=ws.slice(-13),g=m.budgets[UI.budget];
-  const vals=show.flatMap(w=>[w.saved,reg(w)]);const hi=Math.max(...vals,g.KAI.need,g.SNG.need)*1.12,lo=Math.min(0,...vals)*1.15;
-  const Y=v=>T+(hi-v)/(hi-lo)*(H-T-B),n=show.length,slot=(W-L0-R)/Math.max(n,6),bw=Math.min(22,slot-4);
-  let s="";for(const v of niceTicks(lo,hi,4))s+=`<line class="grid" x1="${L0}" x2="${W-R}" y1="${Y(v)}" y2="${Y(v)}"/><text class="axis" x="${L0-6}" y="${Y(v)+4}" text-anchor="end">${nf0.format(v)}</text>`;
-  let anyX=false;const pts=[];
-  show.forEach((w,i)=>{const cx=L0+slot*(i+.5),y0=Y(0),y1=Y(w.saved),rv=reg(w);
-    if(hasX(w)){anyX=true;s+=`<path d="${barPath(cx,bw,Y,rv)}" fill="none" stroke="var(--ai)" stroke-width="1.5" stroke-dasharray="3 2"/>`}
-    s+=`<path d="${barPath(cx,bw,Y,w.saved)}" fill="${w.saved<0?"var(--shu)":"var(--ai)"}" opacity="${i===n-1?1:.75}"/>`;
-    if(i===n-1||w.saved<0)s+=`<text class="lbl" x="${cx}" y="${w.saved<0?y1+13:Math.min(y1,Y(rv))-5}" text-anchor="middle" fill="var(--ink)">${nf0.format(w.saved)}</text>`;
-    if(i===0||i===n-1||n<=7)s+=`<text class="axis" x="${cx}" y="${H-6}" text-anchor="middle">${dm(parseD(w.monday))}</text>`;
-    pts.push({x:cx,y:Math.min(y0,y1,Y(rv)),w})});
-  s+=`<line x1="${L0}" x2="${W-R}" y1="${Y(0)}" y2="${Y(0)}" stroke="var(--ink-muted)" stroke-width="1"/>`;
-  [[g.SNG.need,"var(--series-1)"],[g.KAI.need,"var(--series-2)"]].forEach(x=>{s+=`<line x1="${L0}" x2="${W-R}" y1="${Y(x[0])}" y2="${Y(x[0])}" stroke="${x[1]}" stroke-width="2" stroke-dasharray="6 4"/>`});
-  $("barsChart").innerHTML=svgEl(W,H,s);
-  $("barsCap").textContent="Последние "+n+" нед · выше нормы KAI без разовых: "+show.filter(w=>reg(w)>=g.KAI.need).length+" из "+n;
-  $("barsLegend").innerHTML=`<span><i style="background:var(--ai)"></i>отложено</span>`+(anyX?`<span><i class="ghost"></i>без разовых</span>`:"")+`<span><i style="background:var(--shu)"></i>минус</span><span><i class="line" style="background:var(--series-1)"></i>нужно SNG ${eur(g.SNG.need)}</span><span><i class="line" style="background:var(--series-2)"></i>нужно KAI ${eur(g.KAI.need)}</span>`;
-  attachTip($("barsChart"),pts,q=>`${dm(parseD(q.w.monday))}–${dm(parseD(q.w.monday)+6*DAY)}<br><b>${signed(q.w.saved)} €</b>`+(hasX(q.w)?`<br>без разовых ${signed(reg(q.w))}`+(q.w.note?` · ${esc(q.w.note)}`:""):""));
-}
 function kRate(){
   const keys=Object.keys(D.rates||{}).sort(),box=$("rateChart");if(!box)return;
   if(keys.length<2){box.innerHTML=`<div class="empty">${navigator.onLine?"Загружаю курс…":"Курс загрузится, когда появится интернет."}</div>`;return}
@@ -569,64 +545,57 @@ function buckets(group){
   else{const y0=new Date(f).getUTCFullYear();for(let y=y0;y<=d.getUTCFullYear();y++)out.push({start:Date.UTC(y,0,1),end:Date.UTC(y+1,0,1),label:String(y)})}
   return out;
 }
-function renderCharts(){
-  const S=UI.ch,sel=S.accs&&S.accs.length?S.accs:null;const bs=buckets(S.group);
-  const ops=opsList().filter(o=>(o.type==="income"||o.type==="expense")&&accFilterMatch(o,sel)&&!(account(o.accountId)||{}).exclude);
-  for(const b of bs){b.inc=0;b.exp=0;b.cats={}}
-  for(const o of ops){const t=parseD(o.date);const b=bs.find(x=>t>=x.start&&t<x.end);if(!b)continue;const v=opEUR(o);
-    if(o.type==="income")b.inc+=v;else b.exp+=v;
-    if((S.mode==="expense"&&o.type==="expense")||(S.mode==="income"&&o.type==="income")){b.cats[o.categoryId]=(b.cats[o.categoryId]||0)+v}}
-  let h=`<main class="wrap"><div class="head"><div><h1 class="title">Графики</h1><div class="sub">${esc(sel?accLabel(sel):"Все счета")}</div></div><button class="icon-btn" data-act="accpick" data-scope="ch" aria-label="Выбор счетов">${svgI("wallet")}</button></div>`;
-  h+=`<div class="seg" role="group" aria-label="Вид">${[["total","Общий"],["expense","Расходы"],["income","Доходы"]].map(([k,l])=>`<button data-act="chmode" data-v="${k}" aria-pressed="${S.mode===k}">${l}</button>`).join("")}</div>`;
-  h+=`<section class="card chart-card"><div class="seg" role="group" aria-label="Группировка">${[["year","По годам"],["month","По месяцам"],["week","По неделям"],["day","По дням"]].map(([k,l])=>`<button data-act="chgroup" data-v="${k}" aria-pressed="${S.group===k}">${l}</button>`).join("")}</div>
-    <div class="chart hs" id="mainChart"></div><div class="legend" id="mainLegend"></div><div id="selDetail"></div></section>`;
-  const N=Math.min(CH_N[S.group]||4,bs.length),last=bs.slice(-N),tI=last.reduce((a,b)=>a+b.inc,0),tE=last.reduce((a,b)=>a+b.exp,0);
-  const lbl=S.group==="year"?"все годы":"последние "+N+" "+({day:"дн.",week:"нед.",month:"мес."})[S.group];
-  h+=`<section class="card"><div class="rows">
-    <p class="section-label" style="margin:0 0 4px">${esc(lbl[0].toUpperCase()+lbl.slice(1))}</p><div class="r" style="border-top:0"><span class="k">Доходы</span><span class="v num pos-t">${nf2.format(tI)} €</span></div>
-    <div class="r"><span class="k">Расходы</span><span class="v num">${nf2.format(tE)} €</span></div>
-    <div class="r"><span class="k">${tI-tE>=0?"Прибыль":"Убыток"}</span><span class="v num ${tI-tE>=0?"pos-t":"neg-t"}">${nf2.format(tI-tE)} €</span></div>
-    <div class="r"><span class="k">В среднем за ${({day:"день",week:"неделю",month:"месяц",year:"год"})[S.group]}</span><span class="v num">${signed((tI-tE)/Math.max(1,N))} €</span></div></div></section>`;
-  h+=`</main>`;
-  after(()=>drawMain(bs,true));
-  return h;
+// Buckets filled with income, expenses (by category for one type) and one-off amounts.
+function chartData(group,catType,accs){
+  const bs=buckets(group);const sel=accs&&accs.length?accs:null;
+  for(const b of bs){b.inc=0;b.exp=0;b.one=0;b.oneInc=0;b.cats={}}
+  for(const o of opsList()){if(o.type!=="income"&&o.type!=="expense")continue;if(!accFilterMatch(o,sel)||(account(o.accountId)||{}).exclude)continue;
+    const t=parseD(o.date);const b=bs.find(x=>t>=x.start&&t<x.end);if(!b)continue;const v=opEUR(o);
+    if(o.type==="income"){b.inc+=v;if(o.oneoff)b.oneInc+=v}else{b.exp+=v;if(o.oneoff)b.one+=v}
+    if(o.type===catType)b.cats[o.categoryId]=(b.cats[o.categoryId]||0)+v}
+  return bs;
 }
-function drawMain(bs,first){
-  const S=UI.ch,box=$("mainChart");if(!box)return;
+/* Swipeable bar chart. S: {mode:"total"|"expense"|"income", group, sel}. o: {box, legend, detail, onPick, first, focusSel} */
+function drawChart(bs,S,o){
+  const box=o.box;if(!box)return;
   const prev=box.querySelector(".ch-scroll");const prevX=prev?prev.scrollLeft:null;
   const cw=box.clientWidth||340,AX=38,vis=CH_N[S.group]||4,n=bs.length;
-  const slot=Math.max(48,(cw-AX)/vis),W=Math.round(n*slot),H=210,T=16,B=28;
+  const slot=Math.max(48,(cw-AX)/vis),W=Math.round(n*slot),H=200,T=16,B=28;
   let s="",ax="",pts=[],legend="";
-  let hi=10,need=null;
-  if(S.mode==="total"){hi=Math.max(10,...bs.flatMap(b=>[b.inc,b.exp,Math.abs(b.inc-b.exp)]));if(S.group==="week"){const K=kNow();if(K.m)need=K.m.budgets[UI.budget].KAI.need}hi=Math.max(hi,need||0)}
+  let hi=10,need=null;const reg=b=>b.inc-b.exp+b.one-b.oneInc;
+  if(S.mode==="total"){hi=Math.max(10,...bs.flatMap(b=>[b.inc,b.exp,Math.abs(b.inc-b.exp),Math.abs(reg(b))]));if(S.group==="week"){const K=kNow();if(K.m)need=K.m.budgets[UI.budget].KAI.need}hi=Math.max(hi,need||0)}
   else{const key=S.mode==="expense"?"exp":"inc";hi=Math.max(10,...bs.map(b=>b[key]))}
   hi*=1.1;const Y=v=>T+(hi-v)/hi*(H-T-B);
   for(const v of niceTicks(0,hi,4)){s+=`<line class="grid" x1="0" x2="${W}" y1="${Y(v)}" y2="${Y(v)}"/>`;ax+=`<text class="axis" x="${AX-6}" y="${Y(v)+4}" text-anchor="end">${kfmt(v)}</text>`}
   if(S.mode==="total"){
-    const bw=Math.max(6,Math.min(22,(slot-18)/3));
-    bs.forEach((b,i)=>{const cx=slot*(i+.5),p=b.inc-b.exp,on=S.sel==null||S.sel===i;
-      s+=`<path d="${barPath(cx-bw-2,bw,Y,b.inc)}" fill="var(--inc)" opacity="${on?1:.4}"/><path d="${barPath(cx,bw,Y,b.exp)}" fill="var(--exp)" opacity="${on?1:.4}"/><path d="${barPath(cx+bw+2,bw,Y,Math.abs(p))}" fill="${p>=0?"var(--profit)":"var(--loss)"}" opacity="${on?1:.4}"/>`;
+    const bw=Math.max(6,Math.min(20,(slot-18)/3));let anyX=false;
+    bs.forEach((b,i)=>{const cx=slot*(i+.5),p=b.inc-b.exp,r=reg(b),on=S.sel==null||S.sel===i,op=on?1:.4;
+      s+=`<path d="${barPath(cx-bw-2,bw,Y,b.inc)}" fill="var(--inc)" opacity="${op}"/><path d="${barPath(cx,bw,Y,b.exp)}" fill="var(--exp)" opacity="${op}"/>`;
+      if(r-p>=1&&r>0){anyX=true;s+=`<path d="${barPath(cx+bw+2,bw,Y,r)}" fill="none" stroke="var(--profit)" stroke-width="1.5" stroke-dasharray="3 2" opacity="${op}"/>`}
+      s+=`<path d="${barPath(cx+bw+2,bw,Y,Math.abs(p))}" fill="${p>=0?"var(--profit)":"var(--loss)"}" opacity="${op}"/>`;
       s+=`<text class="axis" x="${cx}" y="${H-10}" text-anchor="middle">${b.label}</text>`;
       pts.push({x:cx,y:Y(Math.max(b.inc,b.exp,Math.abs(p))),i,b})});
     if(need){s+=`<line x1="0" x2="${W}" y1="${Y(need)}" y2="${Y(need)}" stroke="var(--series-2)" stroke-width="1.5" stroke-dasharray="6 4"/>`;ax+=`<text class="lbl" x="${AX-6}" y="${Y(need)+4}" text-anchor="end" fill="var(--series-2)">${eur(need)}</text>`}
-    legend=`<span><i style="background:var(--inc)"></i>доходы</span><span><i style="background:var(--exp)"></i>расходы</span><span><i style="background:var(--profit)"></i>прибыль</span><span><i style="background:var(--loss)"></i>убыток</span>`+(need?`<span><i class="dash" style="background:repeating-linear-gradient(90deg,var(--series-2) 0 4px,transparent 4px 7px)"></i>норма KAI ${eur(need)} €/нед</span>`:"");
+    legend=`<span><i style="background:var(--inc)"></i>доходы</span><span><i style="background:var(--exp)"></i>расходы</span><span><i style="background:var(--profit)"></i>отложено</span><span><i style="background:var(--loss)"></i>минус</span>`+(anyX?`<span><i class="ghost" style="border-color:var(--profit)"></i>без разовых</span>`:"")+(need?`<span><i class="dash" style="background:repeating-linear-gradient(90deg,var(--series-2) 0 4px,transparent 4px 7px)"></i>норма KAI ${eur(need)} €/нед</span>`:"");
   }else{
     const bw=Math.max(10,Math.min(34,slot-22));const used={};
-    bs.forEach((b,i)=>{const cx=slot*(i+.5);let acc=0;const ents=Object.entries(b.cats).sort((a,c)=>c[1]-a[1]);
+    bs.forEach((b,i)=>{const cx=slot*(i+.5);let acc=0;const ents=Object.entries(b.cats).sort((a,c)=>c[1]-a[1]);const op=S.sel==null||S.sel===i?1:.4;
       ents.forEach(([cid,v],j)=>{const c=category(cid)||{color:"#8E8E93"};used[cid]=(used[cid]||0)+v;const y1=Y(acc+v),y0=Y(acc);
-        s+=`<rect x="${cx-bw/2}" y="${y1}" width="${bw}" height="${Math.max(0,y0-y1-(j<ents.length-1?1:0))}" fill="${esc(c.color)}" rx="${j===ents.length-1?4:0}" opacity="${S.sel==null||S.sel===i?1:.4}"/>`;acc+=v});
-      s+=`<text class="axis" x="${cx}" y="${H-10}" text-anchor="middle">${b.label}</text>`;pts.push({x:cx,y:Y(acc),i,b})});
+        s+=`<rect x="${cx-bw/2}" y="${y1}" width="${bw}" height="${Math.max(0,y0-y1-(j<ents.length-1?1:0))}" fill="${esc(c.color)}" rx="${j===ents.length-1?4:0}" opacity="${op}"/>`;acc+=v});
+      s+=`<text class="axis" x="${cx}" y="${H-10}" text-anchor="middle" ${S.sel===i?'style="font-weight:700;fill:var(--ink)"':""}>${b.label}</text>`;pts.push({x:cx,y:Y(acc),i,b})});
     legend=Object.entries(used).sort((a,c)=>c[1]-a[1]).slice(0,8).map(([cid])=>{const c=category(cid)||{color:"#8E8E93",name:"Без категории"};return `<span><i style="background:${esc(c.color)}"></i>${esc(c.name)}</span>`}).join("");
   }
   s+=`<line x1="0" x2="${W}" y1="${H-B}" y2="${H-B}" stroke="var(--ink-muted)" stroke-width="1"/>`;
   box.innerHTML=`<div class="ch-axis"><svg viewBox="0 0 ${AX} ${H}" width="${AX}" height="${H}">${ax}</svg></div><div class="ch-scroll"><div class="ch-inner" style="width:${W}px"><svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">${s}</svg></div></div>`;
-  $("mainLegend").innerHTML=legend;
-  const sc=box.querySelector(".ch-scroll");sc.scrollLeft=(!first&&prevX!=null)?prevX:sc.scrollWidth;
-  attachTip(box.querySelector(".ch-inner"),pts,null,q=>{UI.ch.sel=UI.ch.sel===q.i?null:q.i;drawMain(bs)});
-  const d=$("selDetail");
-  if(S.sel!=null&&bs[S.sel]){const b=bs[S.sel];let x=`<div class="sel-detail"><div><b>${esc(b.label)}${b.year?" "+b.year:""}</b><span class="muted">${S.group==="week"?dm(b.start)+"–"+dmy(b.end-DAY):""}</span></div>`;
-    if(S.mode==="total")x+=`<div><span>Доходы</span><span class="num pos-t">${nf2.format(b.inc)} €</span></div><div><span>Расходы</span><span class="num">${nf2.format(b.exp)} €</span></div><div><span>${b.inc-b.exp>=0?"Прибыль":"Убыток"}</span><span class="num ${b.inc-b.exp>=0?"pos-t":"neg-t"}">${nf2.format(b.inc-b.exp)} €</span></div>`;
-    else x+=Object.entries(b.cats).sort((a,c)=>c[1]-a[1]).map(([cid,v])=>`<div><span>${esc((category(cid)||{name:"Без категории"}).name)}</span><span class="num">${nf2.format(v)} €</span></div>`).join("")||'<div class="muted">Нет операций</div>';
+  if(o.legend)o.legend.innerHTML=legend;
+  const sc=box.querySelector(".ch-scroll");
+  if(o.focusSel&&S.sel!=null){const want=slot*(S.sel+.5)-sc.clientWidth/2;sc.scrollLeft=(!o.first&&prevX!=null&&Math.abs(prevX-want)<sc.clientWidth/2-slot)?prevX:Math.max(0,want)}
+  else sc.scrollLeft=(!o.first&&prevX!=null)?prevX:sc.scrollWidth;
+  attachTip(box.querySelector(".ch-inner"),pts,null,q=>o.onPick&&o.onPick(q.i));
+  const d=o.detail;if(!d)return;
+  if(S.sel!=null&&bs[S.sel]){const b=bs[S.sel],p=b.inc-b.exp,r=reg(b);let x=`<div class="sel-detail"><div><b>${esc(b.label)}${b.year?" "+b.year:""}</b><span class="muted">${S.group==="week"?dm(b.start)+"–"+dmy(b.end-DAY):""}</span></div>`;
+    x+=`<div><span>Доходы</span><span class="num pos-t">${nf2.format(b.inc)} €</span></div><div><span>Расходы</span><span class="num">${nf2.format(b.exp)} €</span></div><div><span>${p>=0?"Отложено":"Минус"}</span><span class="num ${p>=0?"pos-t":"neg-t"}">${nf2.format(p)} €</span></div>`;
+    if(Math.abs(r-p)>=1)x+=`<div><span>Без разовых</span><span class="num">${signed(r)} €</span></div>`;
     d.innerHTML=x+`</div>`}else d.innerHTML=`<p class="note" style="text-align:center">Листай график вбок. Нажми на столбец, чтобы увидеть суммы.</p>`;
 }
 
@@ -1085,7 +1054,8 @@ document.addEventListener("click",e=>{
     case "allweeks":UI.showAllWeeks=!UI.showAllWeeks;render();break;
     case "ksettings":openKSettings();break;
     case "chmode":UI.ch.mode=v;UI.ch.sel=null;render();break;
-    case "chgroup":UI.ch.group=v;UI.ch.sel=null;UI.ch.page=0;render();break;
+    case "chgroup":UI.ch.group=v;UI.ch.sel=null;render();break;
+    case "ovview":UI.ov.view=UI.ov.view==="bars"?"donut":"bars";render();break;
     case "newacc":openAccount(null);break;
     case "editacc":openAccount(v);break;
     case "transfer":openTransfer(null);break;
