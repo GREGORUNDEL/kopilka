@@ -249,7 +249,8 @@ function render(){
   $("app").innerHTML=`<div class="page" data-tab="${UI.tab}">${fn()}</div>`;
   bindAfter();
   if(UI.tab!=="overview")motionPage(M.lastTab!==UI.tab);
-  if(M.lastTab&&M.lastTab!==UI.tab&&!reduceMotion()){const pg=document.querySelector("#app .page");pg&&pg.animate([{opacity:0,transform:"translateY(8px)"},{opacity:1,transform:"none"}],{duration:240,easing:EASE})}
+  if(M.lastTab&&M.lastTab!==UI.tab&&!reduceMotion()){const pg=document.querySelector("#app .page"),d=M.tabDir||0;M.tabDir=0;
+    pg&&pg.animate(d?[{opacity:.2,transform:`translateX(${d*56}px)`},{opacity:1,transform:"none"}]:[{opacity:0,transform:"translateY(8px)"},{opacity:1,transform:"none"}],{duration:d?260:240,easing:EASE})}
   M.lastTab=UI.tab;M.expand=null;
   saveUI();
 }
@@ -453,7 +454,7 @@ function renderOps(){
   else{let day=null,buf="",net=0;const flush=()=>{if(day){h+=`<section class="group"><p class="section-label"><span>${esc(dayLabel(parseD(day)))}</span>${net?`<span class="num">${net>0?"+":"−"}${nf2.format(Math.abs(net))} €</span>`:""}</p><div class="list">${buf}</div></section>`}};
     for(const o of ops){if(o.date!==day){flush();day=o.date;buf="";net=0}buf+=opRow(o);if(o.type==="income")net+=opEUR(o);else if(o.type==="expense")net-=opEUR(o)}flush()}
   h+=`</main>`;
-  after(()=>{bindCustomRange("ops");bindSwipe(document.querySelector("#app main"),"ops");slideIn("#app .group");const qi=$("opsq");if(qi){qi.oninput=()=>{S.q=qi.value;clearTimeout(qi._t);qi._t=setTimeout(()=>{const pos=qi.selectionStart;render();const n=$("opsq");n.focus();try{n.setSelectionRange(pos,pos)}catch(e){}},250)}}});
+  after(()=>{bindCustomRange("ops");bindSwipe(document.querySelector("#app .sticky"),"ops");slideIn("#app .group");const qi=$("opsq");if(qi){qi.oninput=()=>{S.q=qi.value;clearTimeout(qi._t);qi._t=setTimeout(()=>{const pos=qi.selectionStart;render();const n=$("opsq");n.focus();try{n.setSelectionRange(pos,pos)}catch(e){}},250)}}});
   return h;
 }
 function opRow(o){
@@ -483,6 +484,18 @@ function bindSwipe(el,scope){
     const dir=dx<0?1:-1,np=shiftPeriod(P.period,dir);if(dir>0&&periodRange(np).start>todayMs())return;
     P.period=np;UI.swipeDir=dir;render()},{passive:true});
 }
+/* swipe left/right anywhere on a screen switches between the four tabs; places with their own sideways gesture
+   (the week card on Home, the period header on Operations, charts, horizontal lists, inputs, open sheets) keep it */
+(()=>{let x0=null,y0=0,t0=0;
+  const own="#ovStats,#app .page[data-tab=ops] .sticky,.ch-scroll,.chart,.hscroll,input,select,textarea,.sheet,.scrim,#tabs";
+  document.addEventListener("touchstart",e=>{if(e.touches.length!==1||stack.length||e.target.closest(own)){x0=null;return}
+    x0=e.touches[0].clientX;y0=e.touches[0].clientY;t0=Date.now()},{passive:true});
+  document.addEventListener("touchmove",e=>{if(x0!=null&&e.touches.length>1)x0=null},{passive:true});
+  document.addEventListener("touchend",e=>{if(x0==null)return;const t=e.changedTouches[0],dx=t.clientX-x0,dy=t.clientY-y0;x0=null;
+    if(Math.abs(dx)<60||Math.abs(dx)<Math.abs(dy)*1.7||Date.now()-t0>700)return;
+    const ids=TABS.map(x=>x[0]),i=ids.indexOf(UI.tab),j=i+(dx<0?1:-1);
+    if(i<0||j<0||j>=ids.length){const pg=document.querySelector("#app .page");pg&&!reduceMotion()&&pg.animate([{transform:"none"},{transform:`translateX(${dx<0?-14:14}px)`},{transform:"none"}],{duration:260,easing:EASE});return}
+    UI.tab=ids[j];UI.budgetOpen=false;M.tabDir=dx<0?1:-1;window.scrollTo(0,0);render()},{passive:true})})();
 function slideIn(sel){const d=UI.swipeDir;if(!d)return;UI.swipeDir=0;document.querySelectorAll(sel).forEach(n=>{n.animate([{transform:`translateX(${d*36}px)`,opacity:.3},{transform:"none",opacity:1}],{duration:220,easing:"cubic-bezier(.2,.8,.2,1)"})})}
 function bindCustomRange(scope){
   const f=$(scope+"-from"),t=$(scope+"-to");if(!f||!t)return;
