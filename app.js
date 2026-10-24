@@ -230,7 +230,7 @@ function weekBudget(){
 /* PRIVATE SHOW MODE. While true, nothing in the app says what the savings are for: the Japan tab becomes «Цель»,
    the splash and the yen rate are gone, and every mention of Japan, the schools, yen or Japanese study is blurred
    wherever it appears (screens, sheets, toasts, charts). There is deliberately no switch in the app; set to false to undo. */
-const PRIVATE=true;
+const PRIVATE=false;
 const TABS=[["overview","Главная","home"],["ops","Операции","list"],["kopilka",PRIVATE?"Цель":"Япония",PRIVATE?"pig":"kanji"],["accounts","Счета","wallet"]];
 function renderTabs(){
   $("tabs").innerHTML=TABS.map(([id,label,ic])=>`<button class="tab" data-act="tab" data-v="${id}" ${UI.tab===id?'aria-current="page"':""}>${ic==="kanji"?'<span class="kanji">貯</span>':ic==="pig"?icon("pig-money"):svgI(ic)}<span>${label}</span></button>`).join("");
