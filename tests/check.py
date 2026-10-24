@@ -12,6 +12,7 @@
 Выход: 0 — всё сошлось, 1 — есть расхождения (они перечислены).
 """
 import argparse, datetime as dt, functools, http.server, importlib.util, json, os, sys, threading
+sys.dont_write_bytecode = True  # importing kop.py must not leave __pycache__ in the data repo
 from zoneinfo import ZoneInfo
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
