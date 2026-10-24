@@ -1107,15 +1107,19 @@ async function sync(){
 }
 
 /* ================= rates ================= */
+/* Rates change once a day: the first time the app is opened after 07:00 local time it fetches fresh ones,
+   and they stay fixed until 07:00 the next day. */
+const RATE_HOUR=7;
+function lastRateTick(){const n=new Date(),t=new Date(n.getFullYear(),n.getMonth(),n.getDate(),RATE_HOUR);if(n<t)t.setDate(t.getDate()-1);return t.getTime()}
 async function fetchRates(force){
-  if(!navigator.onLine)return;let changedAny=false;
-  if(force||Date.now()-(D.ratesFetchedAt||0)>3*3600e3){
+  if(!navigator.onLine)return;let changedAny=false;const tick=lastRateTick();
+  if(force||(D.ratesFetchedAt||0)<tick){
     const keys=Object.keys(D.rates||{}).sort();const from=keys.length?iso(parseD(keys[keys.length-1])-7*DAY):iso(todayMs()-120*DAY);
     try{const r=await fetch(`https://api.frankfurter.dev/v1/${from}..?from=EUR&to=JPY`,{cache:"no-store"});
       if(r.ok){const j=await r.json();for(const[d,v] of Object.entries(j.rates||{})){const x=v&&v.JPY;if(typeof x==="number"&&D.rates[d]!==x){D.rates[d]=x;changedAny=true}}D.ratesFetchedAt=Date.now()}}catch(e){}
   }
   const need=accounts().some(a=>a.currency!=="EUR"&&a.currency!=="JPY");
-  if(need&&(force||Date.now()-(D.fxFetchedAt||0)>6*3600e3)){
+  if(need&&(force||(D.fxFetchedAt||0)<tick)){
     try{const r=await fetch("https://open.er-api.com/v6/latest/EUR",{cache:"no-store"});
       if(r.ok){const j=await r.json();if(j&&j.rates){const keep={};for(const c of CURRENCIES)if(j.rates[c])keep[c]=j.rates[c];
         const date=j.time_last_update_utc?iso(Date.parse(j.time_last_update_utc)):todayIso();
