@@ -82,12 +82,38 @@ function renderOverview(){
         <div class="bar"><i data-bar="cat:${esc(x.id)}" style="width:${(x.v/max*100).toFixed(1)}%;background:${esc(x.c.color)}"></i></div></div>
         <span class="pct num">${nf0.format(pct)}%</span><span class="amt num">${nf2.format(x.v)} €</span></button>${sub}`}).join("")+`</div>`;
   }else h+=`<div class="card empty"><b>Нет ${type==="expense"?"расходов":"доходов"} за период</b>Нажми «+», чтобы добавить.</div>`;
+  h+=avgCard();
   h+=`</div></div></main>`;
   after(()=>{bindCustomRange("ov");bindSwipe($("ovStats"),"ov");slideIn("#ovStats .donut-wrap,#ovCats");motionPage(enter)});
   return h;
 }
 const bl=s=>String(s).replace(/[+−-]?\d(?:[\d\u00a0\u202f]*\d)?(?:[.,]\d+)?/g,m=>`<span class="vn">${m}</span>`);
 const eyeBtn=()=>`<button class="icon-btn" data-act="hidebal" aria-label="${UI.hideBal?"Показать баланс":"Скрыть баланс"}" aria-pressed="${!!UI.hideBal}">${svgI(UI.hideBal?"eyeOff":"eye")}</button>`;
+/* «В среднем»: regular spending per category (one-offs apart) from the first full week of records up to
+   yesterday, as an average per day scaled to a day / week / month / year. Opens on «Месяц» every time. */
+const AVG_SCALES=[["day","День",1],["week","Неделя",7],["month","Месяц",30.4375],["year","Год",365.25]];
+function avgData(){
+  const today=todayMs(),ops=opsList().filter(o=>o.type==="expense"&&!(account(o.accountId)||{}).exclude);
+  if(!ops.length)return null;
+  const first=parseD(ops.reduce((m,o)=>o.date<m?o.date:m,"9999"));let start=mondayOf(first);if(first>start)start+=7*DAY;
+  const days=Math.round((today-start)/DAY);if(days<7)return null;
+  const by={};let one=0;
+  for(const o of ops){const t=parseD(o.date);if(t<start||t>=today)continue;const v=opEUR(o);
+    if(o.oneoff){one+=v;continue}const k=o.categoryId||"_";by[k]=(by[k]||0)+v}
+  const rows=Object.entries(by).filter(([,v])=>v/days*30.4375>=1) /* skip categories under 1 € a month */.map(([id,v])=>({id,d:v/days,c:category(id)||{name:"Без категории",color:"#8E8E93",icon:"help-circle"}})).sort((a,b)=>b.d-a.d);
+  return{rows,total:rows.reduce((a,r)=>a+r.d,0),one:one/days,days}
+}
+function avgCard(){
+  const A=avgData();if(!A||!A.rows.length)return"";
+  const sc=AVG_SCALES.find(x=>x[0]===(UI.avgScale||"month"))||AVG_SCALES[2],f=sc[2],fmt=sc[0]==="day"?"nf2":"eur",F=FMT[fmt];
+  const max=A.rows[0].d,wk=Math.round(A.days/7);
+  const amt=(key,d)=>`<span data-avg="${key}" data-d="${d}">${F(d*f)}</span> €`;
+  return `<section id="ovAvg"><p class="section-label"><span>В среднем</span></p><div class="list avg">
+    <div class="avg-top"><div class="seg" role="group" aria-label="Период">${AVG_SCALES.map(([k,l])=>`<button data-act="avgscale" data-v="${k}" aria-pressed="${sc[0]===k}">${l}</button>`).join("")}</div></div>
+    ${A.rows.map(r=>`<div class="row avg-row">${catIc(r.c)}<div class="mid"><div class="t">${esc(r.c.name)}</div><div class="bar"><i style="width:${(r.d/max*100).toFixed(1)}%;background:${esc(r.c.color)}"></i></div></div><span class="amt num">${amt("c:"+r.id,r.d)}</span></div>`).join("")}
+    <div class="row avg-row total"><div class="mid"><div class="t">Всего</div>${A.one>0?`<div class="s">плюс разовые ≈ ${amt("one",A.one)}</div>`:""}</div><span class="amt num">${amt("total",A.total)}</span></div>
+  </div><p class="note avg-note">Без разовых трат · по данным за ${wk} ${wk%10===1&&wk%100!==11?"неделю":wk%10>=2&&wk%10<=4&&(wk%100<10||wk%100>=20)?"недели":"недель"}</p></section>`;
+}
 function goalLine(){
   const K=kNow();if(!K.m)return"";const g=K.m.budgets[UI.budget].KAI,p=Math.max(0,Math.min(1,g.progress));
   return `<button class="goal-line" data-act="tab" data-v="kopilka" aria-label="Открыть Копилку"><span class="gbar${UI.hideBal?" veil":""}">${UI.hideBal?'<i style="width:50%"></i>':`<i data-bar="goal" style="width:${(p*100).toFixed(1)}%"></i>`}</span>

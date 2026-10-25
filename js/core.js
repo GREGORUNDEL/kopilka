@@ -149,6 +149,7 @@ UI.budgetOpen=false; /* the week card always starts folded */
 function resetTransient(){let ch=false;
   if(UI.budgetOpen){UI.budgetOpen=false;ch=true}
   if(UI.ov.open){UI.ov.open=null;ch=true}
+  if(UI.avgScale&&UI.avgScale!=="month"){UI.avgScale="month";ch=true}
   if(UI.opsPrev){UI.ops={...UI.opsPrev,q:""};UI.opsPrev=null;ch=true}
   else if(UI.ops.cat||UI.ops.tag){UI.ops.cat=null;UI.ops.tag=null;ch=true}
   return ch}

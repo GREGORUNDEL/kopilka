@@ -197,6 +197,16 @@ h1.title.sm{font-size:28px;line-height:34px;margin:0;letter-spacing:-.01em}
 .donut-c b [data-roll]{font:inherit;color:inherit}
 .cat-row .bar{height:4px;border-radius:2px;background:var(--surface-sunken);margin-top:5px;overflow:hidden}
 .cat-row .bar i{display:block;height:100%;border-radius:2px}
+.avg-top{padding:12px 16px 4px}
+.avg-row{min-height:52px;cursor:default}
+.page .avg-row:active{background:none;transform:none}
+.avg-row .bar{height:4px;border-radius:2px;background:var(--surface-sunken);margin-top:6px;overflow:hidden}
+.avg-row .bar i{display:block;height:100%;border-radius:2px}
+.avg-row .amt{font-weight:600;min-width:96px;text-align:right}
+.avg-row.total .t{font-weight:600}
+.avg-row.total .s{font-size:13px;line-height:18px;color:var(--ink-muted)}
+.avg-note{text-align:center;margin:8px 16px 0}
+#ovAvg{margin-top:8px}
 /* motion: ring sweep, press feedback (Home for now) */
 .ring-cover{stroke-dashoffset:0;animation:ring-sweep .75s cubic-bezier(.3,.7,.2,1) forwards}
 @keyframes ring-sweep{to{stroke-dashoffset:-314.16px;visibility:hidden}}
