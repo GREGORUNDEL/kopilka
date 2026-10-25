@@ -231,7 +231,7 @@ h1.title.sm{font-size:28px;line-height:34px;margin:0;letter-spacing:-.01em}
 /* phones are portrait-only: iOS ignores the manifest lock, so in landscape on a phone-sized screen the app is
    covered by a "rotate back" screen (tablets and wide windows keep their landscape layout) */
 #rotate{display:none}
-/* private show mode (PRIVATE in app.js) */
+/* private show mode (PRIVATE in js/home.js) */
 .private #splash,.private .hanko,.private #kRateC,.private #kHero .stat:nth-child(3){display:none!important}
 .redact{filter:blur(6px);-webkit-user-select:none;user-select:none}
 .redact-svg{filter:url(#vblur)}
@@ -482,6 +482,10 @@ h1.title.sm{font-size:28px;line-height:34px;margin:0;letter-spacing:-.01em}
 <div id="sheets"></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script src="icons.js"></script>
-<script src="app.js"></script>
+<script src="js/core.js"></script>
+<script src="js/home.js"></script>
+<script src="js/screens.js"></script>
+<script src="js/sheets.js"></script>
+<script src="js/boot.js"></script>
 </body>
 </html>

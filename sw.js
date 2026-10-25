@@ -1,6 +1,6 @@
 // Копилка — service worker. Network first (so updates show on the next launch), cache when offline.
-const CACHE = "kopilka-shell-v31";
-const SHELL = ["./", "./index.html", "./app.js", "./icons.js", "./manifest.webmanifest", "./icon-180.png", "./icon-192.png", "./icon-512.png"];
+const CACHE = "kopilka-shell-v32";
+const SHELL = ["./", "./index.html", "./js/core.js", "./js/home.js", "./js/screens.js", "./js/sheets.js", "./js/boot.js", "./icons.js", "./manifest.webmanifest", "./icon-180.png", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)));
