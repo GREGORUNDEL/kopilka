@@ -359,7 +359,7 @@ function catIc(c,cls){return `<span class="ic ${cls||""}" style="background:${es
    The gap between segments has parallel edges. sweep: a track-coloured cover is drawn over the segments and
    uncovers them clockwise from the top. */
 function donut(segs,sweep){
-  const R=50,W=18,C=2*Math.PI*R,total=segs.reduce((a,s)=>a+s.v,0),ro=R+W/2,ri=R-W/2,GAP=2.2,RND=5;
+  const R=50,W=18,C=2*Math.PI*R,total=segs.reduce((a,s)=>a+s.v,0),ro=R+W/2,ri=R-W/2,GAP=2,RND=0;
   const pt=(r,a)=>`${(60+r*Math.sin(a)).toFixed(3)} ${(60-r*Math.cos(a)).toFixed(3)}`;
   const live=segs.filter(g=>g.v>0);
   // the grey track only for an empty period; with data the gaps between segments show the card itself
@@ -371,7 +371,7 @@ function donut(segs,sweep){
       // angles of the four corners, offset so the gap edges stay parallel
       const so=a0+Math.asin(Math.min(1,d/o)),eo=a1-Math.asin(Math.min(1,d/o)),si=a0+Math.asin(Math.min(1,d/i)),ei=a1-Math.asin(Math.min(1,d/i));
       if(eo>so&&ei>si){const lo=eo-so>Math.PI?1:0,li=ei-si>Math.PI?1:0;
-        s+=`<path d="M${pt(o,so)}A${o} ${o} 0 ${lo} 1 ${pt(o,eo)}L${pt(i,ei)}A${i} ${i} 0 ${li} 0 ${pt(i,si)}Z" fill="${esc(g.color)}" stroke="${esc(g.color)}" stroke-width="${w.toFixed(2)}" stroke-linejoin="round"/>`}
+        s+=`<path d="M${pt(o,so)}A${o} ${o} 0 ${lo} 1 ${pt(o,eo)}L${pt(i,ei)}A${i} ${i} 0 ${li} 0 ${pt(i,si)}Z" fill="${esc(g.color)}"${w>0?` stroke="${esc(g.color)}" stroke-width="${w.toFixed(2)}" stroke-linejoin="round"`:""}/>`}
       else{const m=(a0+a1)/2,hw=Math.max(.3,(avail)/2)/R; // a sliver too small to round
         s+=`<path d="M${pt(ro,m-hw)}A${ro} ${ro} 0 0 1 ${pt(ro,m+hw)}L${pt(ri,m+hw)}A${ri} ${ri} 0 0 0 ${pt(ri,m-hw)}Z" fill="${esc(g.color)}"/>`}
       a0=a1}}
