@@ -304,8 +304,8 @@ function renderOverview(){
       const pct=sum?x.v/sum*100:0,open=S.open===x.id;
       const plan=x.c.plan>0&&p.kind==="month"?` · план ${eur(x.c.plan)} €`:"";
       let sub="";
-      if(open){const tg=Object.entries(x.tags).sort((a,b)=>b[1]-a[1]);
-        sub=`<div class="cat-sub">${tg.map(([t,v])=>`<button class="ctag" data-act="showcatops" data-v="${esc(x.id)}" data-tag="${esc(t)}"><span>${t==="_none"?"без тега":esc((D.tags[t]||{}).name||"тег")}</span><span class="num">${nf2.format(v)} €</span>${svgI("chevR")}</button>`).join("")}</div>`}
+      {const tg=Object.entries(x.tags).sort((a,b)=>b[1]-a[1]);
+        sub=`<div class="cat-sub" ${open?"":"hidden"}>${tg.map(([t,v])=>`<button class="ctag" data-act="showcatops" data-v="${esc(x.id)}" data-tag="${esc(t)}"><span>${t==="_none"?"без тега":esc((D.tags[t]||{}).name||"тег")}</span><span class="num">${nf2.format(v)} €</span>${svgI("chevR")}</button>`).join("")}</div>`}
       return `<button class="row cat-row" data-act="ovopen" data-v="${esc(x.id)}">${catIc(x.c)}<div class="mid"><div class="t">${esc(x.c.name)}</div><div class="s">${x.n} опер.${plan}</div>
         <div class="bar"><i data-bar="cat:${esc(x.id)}" style="width:${(x.v/max*100).toFixed(1)}%;background:${esc(x.c.color)}"></i></div></div>
         <span class="pct num">${nf0.format(pct)}%</span><span class="amt num">${nf2.format(x.v)} €</span></button>${sub}`}).join("")+`</div>`;
@@ -333,7 +333,7 @@ function budgetCard(){
     <span class="b-main"><span class="b-big num ${neg?"neg-t":""}"><span data-roll="left" data-v="${Math.abs(B.left).toFixed(2)}" data-fmt="eur">${eur(Math.abs(B.left))}</span> €</span><span class="b-cap">${neg?"перерасход недели":"можно потратить"}<br>${head}${!neg&&B.daysLeft>1?` · ≈ ${eur(B.left/B.daysLeft)} €/день`:""}</span></span>
     <span class="b-chev">${svgI("chevD")}</span></button>
     <div class="b-bar" role="img" aria-label="Потрачено ${eur(B.spent)} из ${eur(B.life)} €"><i class="d" data-bar="bd" style="width:${dW.toFixed(1)}%"></i><i class="f" data-bar="bf" style="width:${fW.toFixed(1)}%"></i></div>
-    <div class="rows" ${open?"":"hidden"}>`;
+    <div class="b-more" ${open?"":"hidden"}><div class="rows">`;
   h+=row(B.arrived?"Доход за неделю":"Доход, ожидается",(B.arrived?"+":"≈ +")+eur(B.expInc),"pos-t",B.arrived?"":`зарплаты ещё нет · обычно ${eur(B.avgInc)} €`);
   if(B.need)h+=row("Отложить по норме KAI","−"+eur(B.need));
   h+=row("Счета месяца, в среднем","−"+eur(B.billShare),"",c.monthly>0?`на этой неделе оплачено ${eur(c.monthly)} €`+(c.bills.length?`: ${esc(c.bills.slice(0,3).join(", "))}`:""):"аренда, NS, подписки");
@@ -342,7 +342,7 @@ function budgetCard(){
   h+=row(`<i class="dot f"></i>Остальное`,"−"+eur(c.free));
   h+=`</div>`;
   const savedNow=c.inc+c.incOne-c.daily-c.free-c.monthly-c.oneoff;
-  if(open)h+=`<button class="b-foot" data-act="tab" data-v="kopilka"><span>Отложено за неделю <b class="num ${savedNow>=0?"":"neg-t"}">${signed(savedNow)} €</b>${c.oneoff>0?`<small>с учётом разовых −${eur(c.oneoff)} €${c.ones.length?": "+esc(c.ones.slice(0,2).join(", ")):""}</small>`:""}</span>${svgI("chevR")}</button>`;
+  h+=`<button class="b-foot" data-act="tab" data-v="kopilka"><span>Отложено за неделю <b class="num ${savedNow>=0?"":"neg-t"}">${signed(savedNow)} €</b>${c.oneoff>0?`<small>с учётом разовых −${eur(c.oneoff)} €${c.ones.length?": "+esc(c.ones.slice(0,2).join(", ")):""}</small>`:""}</span>${svgI("chevR")}</button></div>`;
   return h+`</section>`;
 }
 function syncBanner(){
@@ -420,16 +420,22 @@ function motionPage(enter){
   let n=0;document.querySelectorAll("[data-bar]").forEach(el=>{const k=el.dataset.bar,to=el.style.width,from=enter?"0%":M.bars[k];M.bars[k]=to;
     if(rm||from==null||from===to)return;el.animate([{width:from},{width:to}],{duration:enter?650:420,delay:delay+(enter&&k.startsWith("cat:")?120+Math.min(n++,8)*40:0),easing:EASE,fill:"backwards"})});
   // opening a card or a category: its content unfolds
-  if(M.expand&&!rm){const box=M.expand==="budget"?document.querySelector(".budget"):null;
-    if(box){unfold(box.querySelectorAll(".rows,.b-foot"));const ch=box.querySelector(".b-chev");ch&&ch.animate([{transform:"rotate(0deg)"},{transform:"rotate(180deg)"}],{duration:280,easing:EASE})}
-    else{const row=document.querySelector(`.cat-row[data-v="${CSS.escape(M.expand.slice(4))}"]`),sub=row&&row.nextElementSibling;if(sub&&sub.classList.contains("cat-sub"))unfold([sub])}}
 }
-function unfold(els){els.forEach(el=>{const cs=getComputedStyle(el),h=el.offsetHeight,mt=cs.marginTop;
-  el.animate([{height:"0px",marginTop:"0px",opacity:0,overflow:"hidden"},{height:h+"px",marginTop:mt,opacity:1,overflow:"hidden"}],{duration:300,easing:EASE})})}
-function fold(els,done){const a=[...els].filter(Boolean);if(!a.length||reduceMotion()){done();return}
-  let left=a.length;a.forEach(el=>{const h=el.offsetHeight,mt=getComputedStyle(el).marginTop;
-    const an=el.animate([{height:h+"px",marginTop:mt,opacity:1,overflow:"hidden"},{height:"0px",marginTop:"0px",opacity:0,overflow:"hidden"}],{duration:240,easing:EASE,fill:"forwards"});
-    an.onfinish=()=>{if(--left===0)done()}})}
+/* Show/hide a block of extra details in place. Only this block's height animates (the page is not rebuilt),
+   its content fades and settles a few points, and an interrupted animation continues from where it is. */
+function expand(el){
+  const run=el._an;const from=run?el.getBoundingClientRect().height:0;if(run)run.cancel();
+  el.hidden=false;if(reduceMotion())return;const to=el.scrollHeight;
+  el.style.overflow="hidden";
+  const a=el._an=el.animate([{height:from+"px"},{height:to+"px"}],{duration:300,easing:EASE});
+  [...el.children].forEach(c=>c.animate([{opacity:0,transform:"translateY(-6px)"},{opacity:1,transform:"none"}],{duration:260,delay:40,easing:EASE,fill:"backwards"}));
+  a.onfinish=a.oncancel=()=>{if(el._an===a){el._an=null;el.style.overflow=""}}}
+function collapse(el){
+  if(el.hidden&&!el._an)return;const run=el._an;const from=el.getBoundingClientRect().height;if(run)run.cancel();
+  if(reduceMotion()){el.hidden=true;return}
+  el.style.overflow="hidden";
+  const a=el._an=el.animate([{height:from+"px",opacity:1},{height:"0px",opacity:0}],{duration:240,easing:EASE,fill:"forwards"});
+  a.onfinish=()=>{if(el._an!==a)return;el._an=null;el.hidden=true;el.style.overflow="";a.cancel()}}
 /* ================= OPERATIONS ================= */
 function renderOps(){
   const S=UI.ops,p=S.period,r=periodRange(p);const sel=S.accs&&S.accs.length?S.accs:null;
@@ -1151,14 +1157,14 @@ document.addEventListener("click",e=>{
     case "ovtype":UI.ov.type=v;UI.ov.open=null;render();break;
     case "pkind":P.period={...P.period,kind:v,anchor:todayIso()};if(v==="custom"&&!P.period.from){P.period.from=iso(todayMs()-30*DAY);P.period.to=todayIso()}render();break;
     case "pshift":P.period=shiftPeriod(P.period,+v);UI.swipeDir=+v;render();break;
-    case "budgettoggle":{const box=el.closest(".budget");
-      if(UI.budgetOpen&&box){const ch=box.querySelector(".b-chev");ch&&!reduceMotion()&&ch.animate([{transform:"rotate(180deg)"},{transform:"rotate(0deg)"}],{duration:240,easing:EASE,fill:"forwards"});
-        fold(box.querySelectorAll(".rows,.b-foot"),()=>{UI.budgetOpen=false;render()})}
-      else{UI.budgetOpen=true;render();M.expand="budget";motionPage(false)}break}
+    case "budgettoggle":{const box=el.closest(".budget"),more=box&&box.querySelector(".b-more");if(!more)break;
+      UI.budgetOpen=!UI.budgetOpen;box.classList.toggle("open",UI.budgetOpen);el.setAttribute("aria-expanded",String(UI.budgetOpen));saveUI();
+      UI.budgetOpen?expand(more):collapse(more);break}
     case "ptoday":P.period={...P.period,anchor:todayIso()};render();break;
-    case "ovopen":{const sub=el.nextElementSibling;
-      if(UI.ov.open===v&&sub&&sub.classList.contains("cat-sub"))fold([sub],()=>{UI.ov.open=null;render()});
-      else{UI.ov.open=v;render();M.expand="cat:"+v;motionPage(false)}break}
+    case "ovopen":{const sub=el.nextElementSibling;if(!sub||!sub.classList.contains("cat-sub"))break;
+      const prev=UI.ov.open&&UI.ov.open!==v?document.querySelector(`.cat-row[data-v="${CSS.escape(UI.ov.open)}"]`):null;
+      if(prev&&prev.nextElementSibling&&prev.nextElementSibling.classList.contains("cat-sub"))collapse(prev.nextElementSibling);
+      if(UI.ov.open===v){UI.ov.open=null;collapse(sub)}else{UI.ov.open=v;expand(sub)}break}
     case "showcatops":UI.ops={...UI.ops,filter:UI.ov.type,period:{...UI.ov.period},accs:UI.ov.accs,cat:v,tag:el.dataset.tag||null,q:""};UI.tab="ops";window.scrollTo(0,0);render();break;
     case "clearcat":UI.ops.cat=null;UI.ops.tag=null;render();break;
     case "opsf":UI.ops.filter=v;render();break;
