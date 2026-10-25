@@ -144,7 +144,7 @@ UI.ops.period={kind:"week",anchor:todayIso()};UI.ops.accs=null;UI.ops.filter="al
 UI.ch.mode="total";UI.ch.group="week";UI.ch.accs=null;
 UI.tab="overview"; /* the app always opens on Home */
 UI.budgetOpen=false; /* the week card always starts folded */
-function saveUI(){lsSet("finance.ui",JSON.stringify({tab:UI.tab,hideBal:!!UI.hideBal,budget:UI.budget,ov:{type:UI.ov.type,view:UI.ov.view,period:{kind:UI.ov.period.kind,from:UI.ov.period.from,to:UI.ov.period.to},accs:UI.ov.accs},
+function saveUI(){lsSet("finance.ui",JSON.stringify({tab:UI.tab,hideBal:!!UI.hideBal,budget:UI.budget,ov:{type:UI.ov.type,period:{kind:UI.ov.period.kind,from:UI.ov.period.from,to:UI.ov.period.to},accs:UI.ov.accs},
   ops:{filter:UI.ops.filter,period:{kind:UI.ops.period.kind,from:UI.ops.period.from,to:UI.ops.period.to},accs:UI.ops.accs},ch:{mode:UI.ch.mode,group:UI.ch.group,accs:UI.ch.accs}}))}
 
 /* ================= kopilka model ================= */
@@ -290,19 +290,15 @@ function renderOverview(){
   h+=syncBanner();
   if(!getAuth()&&!accounts().length)h+=onboardCard();
   h+=`<div class="ov-grid"><div class="ov-col">`;
-  const bars=S.view==="bars";
-  h+=`<section class="card ov-stats" id="ovStats"><div class="ov-top"><div class="seg" role="group" aria-label="Тип"><button data-act="ovtype" data-v="expense" aria-pressed="${type==="expense"}">Расходы</button><button data-act="ovtype" data-v="income" aria-pressed="${type==="income"}">Доходы</button></div>
-    <button class="icon-btn view-btn" data-act="ovview" aria-label="${bars?"Показать кольцо":"Показать динамику по периодам"}" title="${bars?"Кольцо":"Динамика"}">${svgI(bars?"donut":"chart")}</button></div>${periodControls("ov",p)}`;
-  // donut
-  const segs=rows.map(x=>({v:x.v,color:x.c.color}));
-  if(bars)h+=`<div class="ov-sum"><b class="num">${nf2.format(sum)} €</b> ${type==="expense"?"расходы":"доходы"} · ${ops.length} опер.</div><div class="chart hs" id="ovChart"></div><div class="legend" id="ovLegend"></div></section>`;
-  else h+=`<div class="donut-wrap">${donut(segs,enter)}<div class="donut-c"><b class="num"><span data-roll="ring:${esc(rk)}" data-v="${sum.toFixed(2)}" data-fmt="nf2">${nf2.format(sum)}</span> €</b><span>${type==="expense"?"расходы":"доходы"} · ${ops.length} опер.</span></div></div></section>`;
+  h+=`<section class="card ov-stats" id="ovStats"><div class="ov-top"><div class="seg" role="group" aria-label="Тип"><button data-act="ovtype" data-v="expense" aria-pressed="${type==="expense"}">Расходы</button><button data-act="ovtype" data-v="income" aria-pressed="${type==="income"}">Доходы</button></div></div>${periodControls("ov",p)}`;
+  const segs=rows.map(x=>({v:x.v,color:x.c.color,id:x.id,name:x.c.name}));
+  h+=`<div class="donut-wrap">${donut(segs,enter)}<div class="donut-c"><b class="num"><span data-roll="ring:${esc(rk)}" data-v="${sum.toFixed(2)}" data-fmt="nf2">${nf2.format(sum)}</span> €</b><span>${type==="expense"?"расходы":"доходы"} · ${ops.length} опер.</span></div></div></section>`;
   h+=budgetCard();
   h+=`</div><div class="ov-col">`;
   if(rows.length){
     h+=`<div class="list" id="ovCats">`+rows.map(x=>{
       const pct=sum?x.v/sum*100:0,open=S.open===x.id;
-      const plan=x.c.plan>0&&p.kind==="month"?` · план ${eur(x.c.plan)} €`:"";
+      const plan=x.c.plan>0&&p.kind==="month"?` · из ${eur(x.c.plan)} €`:"";
       let sub="";
       {const tg=Object.entries(x.tags).sort((a,b)=>b[1]-a[1]);
         sub=`<div class="cat-sub" ${open?"":"hidden"}>${tg.map(([t,v])=>`<button class="ctag" data-act="showcatops" data-v="${esc(x.id)}" data-tag="${esc(t)}"><span>${t==="_none"?"без тега":esc((D.tags[t]||{}).name||"тег")}</span><span class="num">${nf2.format(v)} €</span>${svgI("chevR")}</button>`).join("")}</div>`}
@@ -311,9 +307,7 @@ function renderOverview(){
         <span class="pct num">${nf0.format(pct)}%</span><span class="amt num">${nf2.format(x.v)} €</span></button>${sub}`}).join("")+`</div>`;
   }else h+=`<div class="card empty"><b>Нет ${type==="expense"?"расходов":"доходов"} за период</b>Нажми «+», чтобы добавить.</div>`;
   h+=`</div></div></main>`;
-  after(()=>{bindCustomRange("ov");bindSwipe($("ovStats"),"ov");slideIn("#ovStats .donut-wrap,#ovCats");motionPage(enter);
-    if(bars){const g=p.kind==="custom"?"week":p.kind,bs=chartData(g,type,sel),a=periodRange(p).start,idx=bs.findIndex(b=>a>=b.start&&a<b.end);
-      drawChart(bs,{mode:type,group:g,sel:idx<0?null:idx},{box:$("ovChart"),legend:$("ovLegend"),first:true,focusSel:true,onPick:i=>{UI.ov.period={...UI.ov.period,kind:g,anchor:iso(bs[i].start)};render()}})}});
+  after(()=>{bindCustomRange("ov");bindSwipe($("ovStats"),"ov");slideIn("#ovStats .donut-wrap,#ovCats");motionPage(enter)});
   return h;
 }
 const bl=s=>String(s).replace(/[+−-]?\d(?:[\d\u00a0\u202f]*\d)?(?:[.,]\d+)?/g,m=>`<span class="vn">${m}</span>`);
@@ -362,18 +356,19 @@ function donut(segs,sweep){
   const R=50,W=18,C=2*Math.PI*R,total=segs.reduce((a,s)=>a+s.v,0),ro=R+W/2,ri=R-W/2,GAP=2,RND=0;
   const pt=(r,a)=>`${(60+r*Math.sin(a)).toFixed(3)} ${(60-r*Math.cos(a)).toFixed(3)}`;
   const live=segs.filter(g=>g.v>0);
+  const seg=g=>g.id?`class="seg-hit" data-act="ringseg" data-v="${esc(g.id)}" role="button" aria-label="${esc(g.name||"")}"`:"";
   // the grey track only for an empty period; with data the gaps between segments show the card itself
   let s=`<svg viewBox="0 0 120 120">${total>0?"":`<circle cx="60" cy="60" r="${R}" fill="none" stroke="var(--surface-sunken)" stroke-width="${W}"/>`}`;
-  if(total>0&&live.length===1)s+=`<circle cx="60" cy="60" r="${R}" fill="none" stroke="${esc(live[0].color)}" stroke-width="${W}"/>`;
+  if(total>0&&live.length===1)s+=`<circle ${seg(live[0])} cx="60" cy="60" r="${R}" fill="none" stroke="${esc(live[0].color)}" stroke-width="${W}"/>`;
   else if(total>0){let a0=0;
     for(const g of live){const da=g.v/total*2*Math.PI,a1=a0+da,avail=da*R-GAP;
       const w=Math.max(0,Math.min(RND,avail-.6)),h=w/2,d=GAP/2+h,o=ro-h,i=ri+h;
       // angles of the four corners, offset so the gap edges stay parallel
       const so=a0+Math.asin(Math.min(1,d/o)),eo=a1-Math.asin(Math.min(1,d/o)),si=a0+Math.asin(Math.min(1,d/i)),ei=a1-Math.asin(Math.min(1,d/i));
       if(eo>so&&ei>si){const lo=eo-so>Math.PI?1:0,li=ei-si>Math.PI?1:0;
-        s+=`<path d="M${pt(o,so)}A${o} ${o} 0 ${lo} 1 ${pt(o,eo)}L${pt(i,ei)}A${i} ${i} 0 ${li} 0 ${pt(i,si)}Z" fill="${esc(g.color)}"${w>0?` stroke="${esc(g.color)}" stroke-width="${w.toFixed(2)}" stroke-linejoin="round"`:""}/>`}
+        s+=`<path ${seg(g)} d="M${pt(o,so)}A${o} ${o} 0 ${lo} 1 ${pt(o,eo)}L${pt(i,ei)}A${i} ${i} 0 ${li} 0 ${pt(i,si)}Z" fill="${esc(g.color)}"${w>0?` stroke="${esc(g.color)}" stroke-width="${w.toFixed(2)}" stroke-linejoin="round"`:""}/>`}
       else{const m=(a0+a1)/2,hw=Math.max(.3,(avail)/2)/R; // a sliver too small to round
-        s+=`<path d="M${pt(ro,m-hw)}A${ro} ${ro} 0 0 1 ${pt(ro,m+hw)}L${pt(ri,m+hw)}A${ri} ${ri} 0 0 0 ${pt(ri,m-hw)}Z" fill="${esc(g.color)}"/>`}
+        s+=`<path ${seg(g)} d="M${pt(ro,m-hw)}A${ro} ${ro} 0 0 1 ${pt(ro,m+hw)}L${pt(ri,m+hw)}A${ri} ${ri} 0 0 0 ${pt(ri,m-hw)}Z" fill="${esc(g.color)}"/>`}
       a0=a1}}
   if(sweep&&total>0&&!reduceMotion())s+=`<circle class="ring-cover" cx="60" cy="60" r="${R}" fill="none" stroke="var(--surface-raised)" stroke-width="${W+1.5}" stroke-dasharray="${C.toFixed(2)} ${C.toFixed(2)}" transform="rotate(-90 60 60)" style="animation-delay:${splashLeft()}ms"/>`;
   return s+`</svg>`;
@@ -490,6 +485,20 @@ function bindSwipe(el,scope){
     const dir=dx<0?1:-1,np=shiftPeriod(P.period,dir);if(dir>0&&periodRange(np).start>todayMs())return;
     P.period=np;UI.swipeDir=dir;render()},{passive:true});
 }
+/* the + button slides away while scrolling down the list and comes back on the way up */
+(()=>{let last=0,raf=0;const upd=()=>{raf=0;const y=Math.max(0,scrollY),f=$("fab");if(!f)return;
+    if(y<80||y<last-8){f.classList.remove("away");last=y}else if(y>last+8){f.classList.add("away");last=y}};
+  window.addEventListener("scroll",()=>{if(!raf)raf=requestAnimationFrame(upd)},{passive:true})})();
+/* pull the page down at the very top and let go to sync now */
+(()=>{let y0=null,pulled=0;const PULL=90;const el=()=>$("ptr");
+  const show=(t,o)=>{const p=el();if(!p)return;p.textContent=t;p.style.opacity=o;p.style.transform=`translate(-50%,${(o*8-8).toFixed(1)}px)`};
+  document.addEventListener("touchstart",e=>{y0=(scrollY<=0&&e.touches.length===1&&!stack.length&&getAuth())?e.touches[0].clientY:null;pulled=0},{passive:true});
+  document.addEventListener("touchmove",e=>{if(y0==null)return;pulled=e.touches[0].clientY-y0;
+    if(scrollY>0||pulled<=0){show("",0);return}show(pulled>=PULL?"Отпусти — обновить":"Потяни, чтобы обновить",Math.min(1,pulled/PULL))},{passive:true});
+  document.addEventListener("touchend",async()=>{if(y0==null)return;y0=null;
+    if(pulled<PULL||scrollY>0){show("",0);return}show("Обновляю…",1);
+    try{await Promise.all([sync(),fetchRates(true)])}catch(e){}
+    show("",0);toast(syncState==="ok"?"Данные обновлены":syncState==="offline"?"Нет сети — обновлю, когда появится":"Не удалось обновить")},{passive:true})})();
 /* swipe left/right anywhere on a screen switches between the four tabs; places with their own sideways gesture
    (the week card on Home, the period header on Operations, charts, horizontal lists, inputs, open sheets) keep it */
 (()=>{let x0=null,y0=0,t0=0;
@@ -501,7 +510,7 @@ function bindSwipe(el,scope){
     if(Math.abs(dx)<60||Math.abs(dx)<Math.abs(dy)*1.7||Date.now()-t0>700)return;
     const ids=TABS.map(x=>x[0]),i=ids.indexOf(UI.tab),j=i+(dx<0?1:-1);
     if(i<0||j<0||j>=ids.length){const pg=document.querySelector("#app .page");pg&&!reduceMotion()&&pg.animate([{transform:"none"},{transform:`translateX(${dx<0?-14:14}px)`},{transform:"none"}],{duration:260,easing:EASE});return}
-    UI.tab=ids[j];UI.budgetOpen=false;M.tabDir=dx<0?1:-1;window.scrollTo(0,0);render()},{passive:true})})();
+    UI.tab=ids[j];UI.budgetOpen=false;M.tabDir=dx<0?1:-1;window.scrollTo(0,0);render();$("fab").classList.remove("away")},{passive:true})})();
 function slideIn(sel){const d=UI.swipeDir;if(!d)return;UI.swipeDir=0;document.querySelectorAll(sel).forEach(n=>{n.animate([{transform:`translateX(${d*36}px)`,opacity:.3},{transform:"none",opacity:1}],{duration:220,easing:"cubic-bezier(.2,.8,.2,1)"})})}
 function bindCustomRange(scope){
   const f=$(scope+"-from"),t=$(scope+"-to");if(!f||!t)return;
@@ -852,9 +861,9 @@ function openOp(id,preset){
   draw();
 }
 function weekToast(o){
-  const mon=iso(mondayOf(parseD(o.date)));const base=(o.type==="expense"?"Расход":"Доход")+" "+money(o.amount,accCur(o.accountId))+" записан";
+  const mon=iso(mondayOf(parseD(o.date)));const base=(o.type==="expense"?"−":"+")+money(o.amount,accCur(o.accountId))+" записано";
   if(mon<ledgerStart())return base+". Неделя "+dm(parseD(mon))+" ведётся в Копилке вручную.";
-  if(mon===iso(mondayOf(todayMs()))&&o.type==="expense"&&!o.oneoff){const B=weekBudget();if(B)return base+(B.left>=0?` · на неделю осталось ${eur(B.left)} €`:` · перерасход недели ${eur(-B.left)} €`)}
+  if(mon===iso(mondayOf(todayMs()))&&o.type==="expense"&&!o.oneoff){const B=weekBudget();if(B)return base+(B.left>=0?` · осталось ${eur(B.left)} € на неделю`:` · перерасход ${eur(-B.left)} €`)}
   const st=weekStatus(mon);if(!st||!st.w)return base;const w=st.w,rv=reg(w),diff=rv-st.need;
   return base+` · неделя ${signed(w.saved)} €, `+(diff>=0?`выше нормы на ${eur(diff)}`:`до нормы ${eur(-diff)}`);
 }
@@ -1149,7 +1158,7 @@ document.addEventListener("click",e=>{
   const a=el.dataset.act,v=el.dataset.v,sc=el.dataset.scope;
   const P=sc==="ov"?UI.ov:UI.ops;
   switch(a){
-    case "tab":UI.tab=v;UI.budgetOpen=false;window.scrollTo(0,0);render();break;
+    case "tab":UI.tab=v;UI.budgetOpen=false;window.scrollTo(0,0);render();$("fab").classList.remove("away");break;
     case "sync":if(syncState==="auth"||syncState==="norepo"||syncState==="local")openSettings();else sync();break;
     case "syncsheet":case "settings":openSettings();break;
     case "accpick":openAccPick(sc);break;
@@ -1161,6 +1170,16 @@ document.addEventListener("click",e=>{
       UI.budgetOpen=!UI.budgetOpen;box.classList.toggle("open",UI.budgetOpen);el.setAttribute("aria-expanded",String(UI.budgetOpen));saveUI();
       UI.budgetOpen?expand(more):collapse(more);break}
     case "ptoday":P.period={...P.period,anchor:todayIso()};render();break;
+    case "ringseg":{const row=document.querySelector(`.cat-row[data-v="${CSS.escape(v)}"]`);if(!row)break;
+      const sub=row.nextElementSibling;
+      if(UI.ov.open!==v){const prev=UI.ov.open&&document.querySelector(`.cat-row[data-v="${CSS.escape(UI.ov.open)}"]`);
+        if(prev&&prev.nextElementSibling&&prev.nextElementSibling.classList.contains("cat-sub"))collapse(prev.nextElementSibling);
+        UI.ov.open=v;if(sub&&sub.classList.contains("cat-sub"))expand(sub)}
+      // scroll once the tags have unfolded, so the page is already long enough to bring the row up
+      setTimeout(()=>{const r=row.getBoundingClientRect(),top=scrollY+r.top-window.innerHeight*.28;
+        window.scrollTo({top:Math.max(0,top),behavior:reduceMotion()?"auto":"smooth"})},reduceMotion()?0:320);
+      if(!reduceMotion())row.animate([{background:"color-mix(in srgb,var(--ai) 22%,transparent)"},{background:"transparent"}],{duration:1100,delay:250,easing:"ease-out"});
+      break}
     case "ovopen":{const sub=el.nextElementSibling;if(!sub||!sub.classList.contains("cat-sub"))break;
       const prev=UI.ov.open&&UI.ov.open!==v?document.querySelector(`.cat-row[data-v="${CSS.escape(UI.ov.open)}"]`):null;
       if(prev&&prev.nextElementSibling&&prev.nextElementSibling.classList.contains("cat-sub"))collapse(prev.nextElementSibling);
@@ -1177,7 +1196,6 @@ document.addEventListener("click",e=>{
     case "ksettings":if(PRIVATE){toast("Настройки цели сейчас недоступны");break}openKSettings();break;
     case "chmode":UI.ch.mode=v;UI.ch.sel=null;render();break;
     case "chgroup":UI.ch.group=v;UI.ch.sel=null;render();break;
-    case "ovview":UI.ov.view=UI.ov.view==="bars"?"donut":"bars";render();break;
     case "newacc":openAccount(null);break;
     case "editacc":openAccount(v);break;
     case "transfer":openTransfer(null);break;

@@ -109,6 +109,12 @@ h1.title.sm{font-size:28px;line-height:34px;margin:0;letter-spacing:-.01em}
 .fab{position:fixed;z-index:14;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(var(--tabh) + var(--tabgap) + 16px);
   width:56px;height:56px;border-radius:50%;background:var(--ai);color:var(--on-ai);display:grid;place-items:center;box-shadow:0 6px 20px rgba(20,30,60,.3)}
 .fab svg.i{width:26px;height:26px;stroke-width:2.4}
+.fab.away{transform:translateY(calc(100% + var(--tabh) + var(--tabgap) + 24px))!important;opacity:0;pointer-events:none}
+#fab{transition:transform .28s cubic-bezier(.2,.8,.2,1),opacity .2s}
+.seg-hit{cursor:pointer;-webkit-tap-highlight-color:transparent}
+.ring-cover{pointer-events:none}
+#ptr{position:fixed;left:50%;top:calc(var(--safe-top) + 4px);z-index:45;transform:translate(-50%,-8px);opacity:0;pointer-events:none;
+  background:var(--surface-raised);color:var(--ink-muted);font-size:13px;line-height:18px;padding:6px 12px;border-radius:14px;white-space:nowrap}
 
 /* cards and lists */
 .card{background:var(--surface-raised);border-radius:var(--r-md);padding:16px}
@@ -418,9 +424,10 @@ h1.title.sm{font-size:28px;line-height:34px;margin:0;letter-spacing:-.01em}
 .keypad button.flat{background:transparent;font-size:28px}
 .keypad button.flat svg.i{width:28px;height:28px}
 .keypad button:active{background:var(--line)}
-.toast{position:fixed;left:50%;transform:translate(-50%,20px);bottom:calc(var(--tabh) + var(--tabgap) + 86px);z-index:40;background:var(--ink);color:var(--surface);
-  border-radius:16px;padding:12px 16px;font-size:15px;line-height:20px;max-width:min(92vw,420px);opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;text-align:center}
-.toast.show{opacity:1;transform:translate(-50%,0)}
+/* toast sits just above the tab bar, beside the + button, so it never covers the screen's numbers */
+.toast{position:fixed;left:max(16px,env(safe-area-inset-left,0px));right:calc(max(16px,env(safe-area-inset-right,0px)) + 68px);transform:translateY(16px);bottom:calc(var(--tabh) + var(--tabgap) + 16px);min-height:56px;display:flex;align-items:center;justify-content:center;font-size:14px!important;z-index:40;background:var(--ink);color:var(--surface);
+  border-radius:16px;padding:10px 14px;font-size:15px;line-height:19px;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;text-align:center}
+.toast.show{opacity:1;transform:none}
 
 /* pickers */
 .icon-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
@@ -469,6 +476,7 @@ h1.title.sm{font-size:28px;line-height:34px;margin:0;letter-spacing:-.01em}
 <div id="vh" aria-hidden="true" style="position:fixed;inset:0;visibility:hidden;pointer-events:none;z-index:-1"></div>
 <div id="app"></div>
 <nav class="tabbar" aria-label="Разделы"><div class="tabbar-in" id="tabs"></div></nav>
+<div id="ptr" aria-live="polite"></div>
 <button class="fab" id="fab" aria-label="Добавить операцию" title="Добавить операцию (N)"></button>
 <div class="scrim" id="scrim" hidden></div>
 <div id="sheets"></div>
