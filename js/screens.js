@@ -56,6 +56,22 @@ function bindSwipe(el,scope){
     const dir=dx<0?1:-1,np=shiftPeriod(P.period,dir);if(dir>0&&periodRange(np).start>todayMs())return;
     P.period=np;UI.swipeDir=dir;render()},{passive:true});
 }
+/* iOS-style "back": drag an open sheet from the left screen edge to the right to cancel it (same as tapping outside).
+   The sheet follows the finger; past a third of the width or with a quick flick it leaves, otherwise it springs back. */
+(()=>{let s=null;const EDGE=28;
+  document.addEventListener("touchstart",e=>{s=null;if(!stack.length||e.touches.length!==1||window.innerWidth>=900)return;const t=e.touches[0];if(t.clientX>EDGE)return;
+    const top=stack[stack.length-1];s={el:top.el,x0:t.clientX,y0:t.clientY,t0:performance.now(),on:false,dx:0,lx:t.clientX,lt:performance.now(),v:0}},{passive:true});
+  document.addEventListener("touchmove",e=>{if(!s)return;const t=e.touches[0],dx=t.clientX-s.x0,dy=t.clientY-s.y0;
+    if(!s.on){if(Math.abs(dy)>10&&Math.abs(dy)>Math.abs(dx)){s=null;return}if(dx<10)return;s.on=true;s.el.style.transition="none";$("scrim").style.transition="none"}
+    e.preventDefault();const now=performance.now();s.v=(t.clientX-s.lx)/Math.max(1,now-s.lt);s.lx=t.clientX;s.lt=now;
+    s.dx=Math.max(0,dx);s.el.style.transform=`translate(calc(-50% + ${s.dx}px),0)`;
+    if(stack.length===1)$("scrim").style.opacity=String(Math.max(0,1-s.dx/window.innerWidth))},{passive:false});
+  const end=()=>{if(!s)return;const x=s;s=null;if(!x.on)return;const el=x.el,sc=$("scrim"),W=window.innerWidth;
+    const ease="transform .26s cubic-bezier(.2,.8,.2,1)";el.style.transition=ease;sc.style.transition="opacity .26s";
+    if(x.dx>W*.33||x.v>.5){el.style.transform=`translate(calc(-50% + ${W}px),0)`;if(stack.length===1)sc.style.opacity="0";
+      setTimeout(()=>{sc.style.opacity="";sc.style.transition="";if(stack.length&&stack[stack.length-1].el===el)closeSheet()},240)}
+    else{el.style.transform="";sc.style.opacity="";setTimeout(()=>{el.style.transition="";sc.style.transition=""},280)}};
+  document.addEventListener("touchend",end,{passive:true});document.addEventListener("touchcancel",end,{passive:true})})();
 /* the + button slides away while scrolling down the list and comes back on the way up */
 (()=>{let last=0,raf=0;const upd=()=>{raf=0;const y=Math.max(0,scrollY),f=$("fab");if(!f)return;
     if(y<80||y<last-8){f.classList.remove("away");last=y}else if(y>last+8){f.classList.add("away");last=y}};
