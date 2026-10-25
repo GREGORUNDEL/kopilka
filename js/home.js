@@ -91,6 +91,8 @@ const bl=s=>String(s).replace(/[+−-]?\d(?:[\d\u00a0\u202f]*\d)?(?:[.,]\d+)?/g,
 const eyeBtn=()=>`<button class="icon-btn" data-act="hidebal" aria-label="${UI.hideBal?"Показать баланс":"Скрыть баланс"}" aria-pressed="${!!UI.hideBal}">${svgI(UI.hideBal?"eyeOff":"eye")}</button>`;
 /* «В среднем»: regular spending per category (one-offs apart) from the first full week of records up to
    yesterday, as an average per day scaled to a day / week / month / year. Opens on «Месяц» every time. */
+/* what counts as everyday life here: no sport or education, and transport is only the NS train */
+const AVG_SKIP=["sport","edu"],AVG_ONLY_TAG={transport:"NS"};
 const AVG_SCALES=[["day","День",1],["week","Неделя",7],["month","Месяц",30.4375],["year","Год",365.25]];
 function avgData(){
   const today=todayMs(),ops=opsList().filter(o=>o.type==="expense"&&!(account(o.accountId)||{}).exclude);
@@ -99,7 +101,9 @@ function avgData(){
   const days=Math.round((today-start)/DAY);if(days<7)return null;
   const by={};let one=0;
   for(const o of ops){const t=parseD(o.date);if(t<start||t>=today)continue;const v=opEUR(o);
-    if(o.oneoff){one+=v;continue}const k=o.categoryId||"_";by[k]=(by[k]||0)+v}
+    if(o.oneoff){one+=v;continue}const k=o.categoryId||"_";if(AVG_SKIP.includes(k))continue;
+    const only=AVG_ONLY_TAG[k];if(only&&!(o.tagIds||[]).some(t=>(D.tags[t]||{}).name===only))continue;
+    by[k]=(by[k]||0)+v}
   const rows=Object.entries(by).filter(([,v])=>v/days*30.4375>=1) /* skip categories under 1 € a month */.map(([id,v])=>({id,d:v/days,c:category(id)||{name:"Без категории",color:"#8E8E93",icon:"help-circle"}})).sort((a,b)=>b.d-a.d);
   return{rows,total:rows.reduce((a,r)=>a+r.d,0),one:one/days,days}
 }
@@ -110,9 +114,9 @@ function avgCard(){
   const amt=(key,d)=>`<span data-avg="${key}" data-d="${d}">${F(d*f)}</span> €`;
   return `<section id="ovAvg"><p class="section-label"><span>В среднем</span></p><div class="list avg">
     <div class="avg-top"><div class="seg" role="group" aria-label="Период">${AVG_SCALES.map(([k,l])=>`<button data-act="avgscale" data-v="${k}" aria-pressed="${sc[0]===k}">${l}</button>`).join("")}</div></div>
-    ${A.rows.map(r=>`<div class="row avg-row">${catIc(r.c)}<div class="mid"><div class="t">${esc(r.c.name)}</div><div class="bar"><i style="width:${(r.d/max*100).toFixed(1)}%;background:${esc(r.c.color)}"></i></div></div><span class="amt num">${amt("c:"+r.id,r.d)}</span></div>`).join("")}
+    ${A.rows.map(r=>`<div class="row avg-row">${catIc(r.c)}<div class="mid"><div class="t">${esc(r.c.name)}${AVG_ONLY_TAG[r.id]?` · ${esc(AVG_ONLY_TAG[r.id])}`:""}</div><div class="bar"><i style="width:${(r.d/max*100).toFixed(1)}%;background:${esc(r.c.color)}"></i></div></div><span class="amt num">${amt("c:"+r.id,r.d)}</span></div>`).join("")}
     <div class="row avg-row total"><div class="mid"><div class="t">Всего</div>${A.one>0?`<div class="s">плюс разовые ≈ ${amt("one",A.one)}</div>`:""}</div><span class="amt num">${amt("total",A.total)}</span></div>
-  </div><p class="note avg-note">Без разовых трат · по данным за ${wk} ${wk%10===1&&wk%100!==11?"неделю":wk%10>=2&&wk%10<=4&&(wk%100<10||wk%100>=20)?"недели":"недель"}</p></section>`;
+  </div><p class="note avg-note">Без разовых, спорта и учёбы, транспорт — только NS · по данным за ${wk} ${wk%10===1&&wk%100!==11?"неделю":wk%10>=2&&wk%10<=4&&(wk%100<10||wk%100>=20)?"недели":"недель"}</p></section>`;
 }
 function goalLine(){
   const K=kNow();if(!K.m)return"";const g=K.m.budgets[UI.budget].KAI,p=Math.max(0,Math.min(1,g.progress));
