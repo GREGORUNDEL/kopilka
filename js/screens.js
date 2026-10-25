@@ -20,8 +20,7 @@ function renderOps(){
   h+=`<div class="searchbox">${svgI("search")}<input id="opsq" type="search" placeholder="Поиск: категория, тег, комментарий, сумма" value="${esc(S.q||"")}" autocomplete="off"></div>`;
   h+=`<div class="seg" role="group" aria-label="Тип">${[["all","Все"],["expense","Расходы"],["income","Доходы"],["transfer","Переводы"]].map(([k,l])=>`<button data-act="opsf" data-v="${k}" aria-pressed="${S.filter===k}">${l}</button>`).join("")}</div>`;
   h+=`<div>${periodControls("ops",p)}
-    <div class="sub" style="margin-top:6px;display:flex;gap:14px;flex-wrap:wrap;justify-content:center">${S.filter!=="income"&&S.filter!=="transfer"?`<span>Расходы: <b class="num" style="color:var(--ink)"><span data-roll="opsE" data-v="${sumE.toFixed(2)}" data-fmt="nf2">${nf2.format(sumE)}</span> €</b></span>`:""}${S.filter!=="expense"&&S.filter!=="transfer"?`<span>Доходы: <b class="num pos-t"><span data-roll="opsI" data-v="${sumI.toFixed(2)}" data-fmt="nf2">${nf2.format(sumI)}</span> €</b></span>`:""}${S.filter==="transfer"?`<span>${ops.length} записей</span>`:""}</div>
-    ${S.cat?`<button class="btn plain" style="margin-top:8px;padding:8px" data-act="clearcat">Показать все категории</button>`:""}</div></div></div>`;
+    <div class="sub" style="margin-top:6px;display:flex;gap:14px;flex-wrap:wrap;justify-content:center">${S.filter!=="income"&&S.filter!=="transfer"?`<span>Расходы: <b class="num" style="color:var(--ink)"><span data-roll="opsE" data-v="${sumE.toFixed(2)}" data-fmt="nf2">${nf2.format(sumE)}</span> €</b></span>`:""}${S.filter!=="expense"&&S.filter!=="transfer"?`<span>Доходы: <b class="num pos-t"><span data-roll="opsI" data-v="${sumI.toFixed(2)}" data-fmt="nf2">${nf2.format(sumI)}</span> €</b></span>`:""}${S.filter==="transfer"?`<span>${ops.length} записей</span>`:""}</div></div></div></div>`;
   if(!ops.length)h+=`<div class="card empty"><b>Ничего не найдено</b>Измени период или фильтр.</div>`;
   else{let day=null,buf="",net=0;const flush=()=>{if(day){h+=`<section class="group"><p class="section-label"><span>${esc(dayLabel(parseD(day)))}</span>${net?`<span class="num">${net>0?"+":"−"}${nf2.format(Math.abs(net))} €</span>`:""}</p><div class="list">${buf}</div></section>`}};
     for(const o of ops){if(o.date!==day){flush();day=o.date;buf="";net=0}buf+=opRow(o);if(o.type==="income")net+=opEUR(o);else if(o.type==="expense")net-=opEUR(o)}flush()}
@@ -105,7 +104,7 @@ function bindSwipe(el,scope){
     if(Math.abs(dx)<60||Math.abs(dx)<Math.abs(dy)*1.7||Date.now()-t0>700)return;
     const ids=TABS.map(x=>x[0]),i=ids.indexOf(UI.tab),j=i+(dx<0?1:-1);
     if(i<0||j<0||j>=ids.length){const pg=document.querySelector("#app .page");pg&&!reduceMotion()&&pg.animate([{transform:"none"},{transform:`translateX(${dx<0?-14:14}px)`},{transform:"none"}],{duration:260,easing:EASE});return}
-    UI.tab=ids[j];UI.budgetOpen=false;M.tabDir=dx<0?1:-1;window.scrollTo(0,0);render();$("fab").classList.remove("away")},{passive:true})})();
+    UI.tab=ids[j];resetTransient();M.tabDir=dx<0?1:-1;window.scrollTo(0,0);render();$("fab").classList.remove("away")},{passive:true})})();
 function slideIn(sel){const d=UI.swipeDir;if(!d)return;UI.swipeDir=0;document.querySelectorAll(sel).forEach(n=>{n.animate([{transform:`translateX(${d*36}px)`,opacity:.3},{transform:"none",opacity:1}],{duration:220,easing:"cubic-bezier(.2,.8,.2,1)"})})}
 function bindCustomRange(scope){
   const f=$(scope+"-from"),t=$(scope+"-to");if(!f||!t)return;

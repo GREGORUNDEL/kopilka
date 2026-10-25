@@ -143,6 +143,15 @@ UI.ops.period={kind:"week",anchor:todayIso()};UI.ops.accs=null;UI.ops.filter="al
 UI.ch.mode="total";UI.ch.group="week";UI.ch.accs=null;
 UI.tab="overview"; /* the app always opens on Home */
 UI.budgetOpen=false; /* the week card always starts folded */
+/* Everything opened "for a moment" closes when you switch tabs or leave the app: the week card, an unfolded
+   category on Home, and the category/tag filter Operations got from Home (it goes back to all operations,
+   with the filters it had before). Returns true if something was open. */
+function resetTransient(){let ch=false;
+  if(UI.budgetOpen){UI.budgetOpen=false;ch=true}
+  if(UI.ov.open){UI.ov.open=null;ch=true}
+  if(UI.opsPrev){UI.ops={...UI.opsPrev,q:""};UI.opsPrev=null;ch=true}
+  else if(UI.ops.cat||UI.ops.tag){UI.ops.cat=null;UI.ops.tag=null;ch=true}
+  return ch}
 function saveUI(){lsSet("finance.ui",JSON.stringify({tab:UI.tab,hideBal:!!UI.hideBal,budget:UI.budget,ov:{type:UI.ov.type,period:{kind:UI.ov.period.kind,from:UI.ov.period.from,to:UI.ov.period.to},accs:UI.ov.accs},
   ops:{filter:UI.ops.filter,period:{kind:UI.ops.period.kind,from:UI.ops.period.from,to:UI.ops.period.to},accs:UI.ops.accs},ch:{mode:UI.ch.mode,group:UI.ch.group,accs:UI.ch.accs}}))}
 

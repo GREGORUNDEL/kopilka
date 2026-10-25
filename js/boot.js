@@ -87,7 +87,7 @@ document.addEventListener("click",e=>{
   const a=el.dataset.act,v=el.dataset.v,sc=el.dataset.scope;
   const P=sc==="ov"?UI.ov:UI.ops;
   switch(a){
-    case "tab":UI.tab=v;UI.budgetOpen=false;window.scrollTo(0,0);render();$("fab").classList.remove("away");break;
+    case "tab":UI.tab=v;resetTransient();window.scrollTo(0,0);render();$("fab").classList.remove("away");break;
     case "sync":if(syncState==="auth"||syncState==="norepo"||syncState==="local")openSettings();else sync();break;
     case "syncsheet":case "settings":openSettings();break;
     case "accpick":openAccPick(sc);break;
@@ -113,14 +113,13 @@ document.addEventListener("click",e=>{
       const prev=UI.ov.open&&UI.ov.open!==v?document.querySelector(`.cat-row[data-v="${CSS.escape(UI.ov.open)}"]`):null;
       if(prev&&prev.nextElementSibling&&prev.nextElementSibling.classList.contains("cat-sub"))collapse(prev.nextElementSibling);
       if(UI.ov.open===v){UI.ov.open=null;collapse(sub)}else{UI.ov.open=v;expand(sub)}break}
-    case "showcatops":UI.ops={...UI.ops,filter:UI.ov.type,period:{...UI.ov.period},accs:UI.ov.accs,cat:v,tag:el.dataset.tag||null,q:""};UI.tab="ops";window.scrollTo(0,0);render();break;
-    case "clearcat":UI.ops.cat=null;UI.ops.tag=null;render();break;
+    case "showcatops":UI.opsPrev=UI.opsPrev||{...UI.ops,period:{...UI.ops.period}};UI.ops={...UI.ops,filter:UI.ov.type,period:{...UI.ov.period},accs:UI.ov.accs,cat:v,tag:el.dataset.tag||null,q:""};UI.tab="ops";window.scrollTo(0,0);render();break;
     case "opsf":UI.ops.filter=v;render();break;
     case "editop":openOp(v);break;
     case "edittransfer":openTransfer(v);break;
     case "budget":UI.budget=v;render();break;
     case "kweek":openKWeek(v||null);break;
-    case "weekops":UI.ops={...UI.ops,filter:"all",period:{kind:"week",anchor:v},accs:null,cat:null,q:""};UI.tab="ops";window.scrollTo(0,0);render();break;
+    case "weekops":UI.opsPrev=UI.opsPrev||{...UI.ops,period:{...UI.ops.period}};UI.ops={...UI.ops,filter:"all",period:{kind:"week",anchor:v},accs:null,cat:null,q:""};UI.tab="ops";window.scrollTo(0,0);render();break;
     case "allweeks":UI.showAllWeeks=!UI.showAllWeeks;render();break;
     case "ksettings":if(PRIVATE){toast("Настройки цели сейчас недоступны");break}openKSettings();break;
     case "chmode":UI.ch.mode=v;UI.ch.sel=null;render();break;
@@ -150,7 +149,7 @@ function healViewport(){if(window.innerHeight>=maxVH-4)return;const y=window.scr
   el.style.display="none";void el.offsetHeight;el.style.display="";const b=document.body;b.style.display="none";void b.offsetHeight;b.style.display="";window.scrollTo(0,y)}
 document.addEventListener("focusout",e=>{if(/INPUT|TEXTAREA|SELECT/.test(e.target.tagName))setTimeout(healViewport,160)});
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")setTimeout(healViewport,300);
-  else if(UI.budgetOpen){UI.budgetOpen=false;if(UI.tab==="overview")render()}});
+  else if(resetTransient()&&!stack.length)render()});
 
 /* ================= start ================= */
 // iOS Safari ignores user-scalable=no, so block its pinch gestures directly
