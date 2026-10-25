@@ -72,20 +72,28 @@ function bindSwipe(el,scope){
       setTimeout(()=>{sc.style.opacity="";sc.style.transition="";if(stack.length&&stack[stack.length-1].el===el)closeSheet()},240)}
     else{el.style.transform="";sc.style.opacity="";setTimeout(()=>{el.style.transition="";sc.style.transition=""},280)}};
   document.addEventListener("touchend",end,{passive:true});document.addEventListener("touchcancel",end,{passive:true})})();
-/* the + button slides away while scrolling down the list and comes back on the way up */
-(()=>{let last=0,raf=0;const upd=()=>{raf=0;const y=Math.max(0,scrollY),f=$("fab");if(!f)return;
-    if(y<80||y<last-8){f.classList.remove("away");last=y}else if(y>last+8){f.classList.add("away");last=y}};
+/* The + button slides away only while you really scroll down a long page, and comes back on the way up.
+   Short pages never hide it, and the rubber-band bounce at either edge is ignored (scroll is clamped to the
+   real range), so it can't flicker. A direction has to be held for a while before the button reacts. */
+(()=>{let last=0,anchor=0,dir=0,raf=0;const HIDE=48,SHOW=24,LONG=160;
+  const upd=()=>{raf=0;const f=$("fab");if(!f)return;const max=document.documentElement.scrollHeight-window.innerHeight;
+    const y=Math.min(Math.max(0,max),Math.max(0,scrollY));
+    if(max<LONG||y<64){f.classList.remove("away");last=anchor=y;dir=0;return}
+    if(y>last){if(dir!==1){dir=1;anchor=last}if(y-anchor>=HIDE)f.classList.add("away")}
+    else if(y<last){if(dir!==-1){dir=-1;anchor=last}if(anchor-y>=SHOW)f.classList.remove("away")}
+    last=y};
   window.addEventListener("scroll",()=>{if(!raf)raf=requestAnimationFrame(upd)},{passive:true})})();
 /* pull the page down at the very top and let go to sync now */
 (()=>{let y0=null,pulled=0;const PULL=90;const el=()=>$("ptr");
-  const show=(t,o)=>{const p=el();if(!p)return;p.textContent=t;p.style.opacity=o;p.style.transform=`translate(-50%,${(o*8-8).toFixed(1)}px)`};
+  const show=(t,o,fade)=>{const p=el();if(!p)return;p.style.transition=fade?"opacity .35s,transform .35s":"none";if(t)p.textContent=t;p.style.opacity=o;p.style.transform=`translate(-50%,${(o*8-8).toFixed(1)}px)`};
   document.addEventListener("touchstart",e=>{y0=(scrollY<=0&&e.touches.length===1&&!stack.length&&getAuth())?e.touches[0].clientY:null;pulled=0},{passive:true});
   document.addEventListener("touchmove",e=>{if(y0==null)return;pulled=e.touches[0].clientY-y0;
     if(scrollY>0||pulled<=0){show("",0);return}show(pulled>=PULL?"Отпусти — обновить":"Потяни, чтобы обновить",Math.min(1,pulled/PULL))},{passive:true});
   document.addEventListener("touchend",async()=>{if(y0==null)return;y0=null;
     if(pulled<PULL||scrollY>0){show("",0);return}show("Обновляю…",1);
     try{await Promise.all([sync(),fetchRates(true)])}catch(e){}
-    show("",0);toast(syncState==="ok"?"Данные обновлены":syncState==="offline"?"Нет сети — обновлю, когда появится":"Не удалось обновить")},{passive:true})})();
+    // the result stays in the same little pill at the top, then fades
+    show(syncState==="ok"?"Обновлено":syncState==="offline"?"Нет сети — обновлю позже":"Не удалось обновить",1);setTimeout(()=>show("",0,true),1400)},{passive:true})})();
 /* swipe left/right anywhere on a screen switches between the four tabs; places with their own sideways gesture
    (the week card on Home, the period header on Operations, charts, horizontal lists, inputs, open sheets) keep it */
 (()=>{let x0=null,y0=0,t0=0;
