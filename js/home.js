@@ -90,7 +90,7 @@ const bl=s=>String(s).replace(/[+−-]?\d(?:[\d\u00a0\u202f]*\d)?(?:[.,]\d+)?/g,
 const eyeBtn=()=>`<button class="icon-btn" data-act="hidebal" aria-label="${UI.hideBal?"Показать баланс":"Скрыть баланс"}" aria-pressed="${!!UI.hideBal}">${svgI(UI.hideBal?"eyeOff":"eye")}</button>`;
 function goalLine(){
   const K=kNow();if(!K.m)return"";const g=K.m.budgets[UI.budget].KAI,p=Math.max(0,Math.min(1,g.progress));
-  return `<button class="goal-line" data-act="tab" data-v="kopilka" aria-label="Открыть Копилку"><span class="gbar${UI.hideBal?" veil":""}"><i data-bar="goal" style="width:${UI.hideBal?50:(p*100).toFixed(1)}%"></i></span>
+  return `<button class="goal-line" data-act="tab" data-v="kopilka" aria-label="Открыть Копилку"><span class="gbar${UI.hideBal?" veil":""}">${UI.hideBal?'<i style="width:50%"></i>':`<i data-bar="goal" style="width:${(p*100).toFixed(1)}%"></i>`}</span>
     <span class="gtxt${UI.hideBal?" veil":""}">${UI.hideBal?"<b class=\"num\">88%</b> цели KAI · ещё 88 888 € · прогноз +8 888":`<b class="num">${nf0.format(g.progress*100)}%</b> цели KAI · ещё ${eur(Math.max(0,g.goal-K.m.bal))} € · прогноз <span class="${g.fc>=0?"pos-t":"neg-t"}">${signed(g.fc)}</span>`}</span></button>`;
 }
 function budgetCard(){
