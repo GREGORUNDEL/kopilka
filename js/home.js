@@ -103,13 +103,14 @@ function avgData(){
   const from=settings().avgFrom;if(from)start=Math.max(start,parseD(from));
   const cap=today-AVG_WINDOW*DAY,capped=start<cap;if(capped)start=cap;
   const days=Math.round((today-start)/DAY);if(days<7)return null;
-  const by={};let one=0;
+  const by={};let one=0,allReg=0,inc=0;
+  for(const o of opsList()){if(o.type!=="income"||o.oneoff||(account(o.accountId)||{}).exclude)continue;const t=parseD(o.date);if(t>=start&&t<today)inc+=opEUR(o)}
   for(const o of ops){const t=parseD(o.date);if(t<start||t>=today)continue;const v=opEUR(o);
-    if(o.oneoff){one+=v;continue}const k=o.categoryId||"_";if(AVG_SKIP.includes(k))continue;
+    if(o.oneoff){one+=v;continue}allReg+=v;const k=o.categoryId||"_";if(AVG_SKIP.includes(k))continue;
     const only=AVG_ONLY_TAG[k];if(only&&!(o.tagIds||[]).some(t=>(D.tags[t]||{}).name===only))continue;
     by[k]=(by[k]||0)+v}
   const rows=Object.entries(by).filter(([,v])=>v/days*30.4375>=1) /* skip categories under 1 € a month */.map(([id,v])=>({id,d:v/days,c:category(id)||{name:"Без категории",color:"#8E8E93",icon:"help-circle"}})).sort((a,b)=>b.d-a.d);
-  return{rows,total:rows.reduce((a,r)=>a+r.d,0),one:one/days,days,capped}
+  return{rows,total:rows.reduce((a,r)=>a+r.d,0),one:one/days,allReg:allReg/days,inc:inc/days,days,capped}
 }
 function avgCard(){
   const A=avgData();if(!A||!A.rows.length)return"";
@@ -120,7 +121,17 @@ function avgCard(){
     <div class="avg-top"><div class="seg" role="group" aria-label="Период">${AVG_SCALES.map(([k,l])=>`<button data-act="avgscale" data-v="${k}" aria-pressed="${sc[0]===k}">${l}</button>`).join("")}</div></div>
     ${A.rows.map(r=>`<div class="row avg-row">${catIc(r.c)}<div class="mid"><div class="t">${esc(r.c.name)}${AVG_ONLY_TAG[r.id]?` · ${esc(AVG_ONLY_TAG[r.id])}`:""}</div><div class="bar"><i style="width:${(r.d/max*100).toFixed(1)}%;background:${esc(r.c.color)}"></i></div></div><span class="amt num">${amt("c:"+r.id,r.d)}</span></div>`).join("")}
     <div class="row avg-row total"><div class="mid"><div class="t">Всего</div>${A.one>0?`<div class="s">плюс разовые ≈ ${amt("one",A.one)}</div>`:""}</div><span class="amt num">${amt("total",A.total)}</span></div>
-  </div><p class="note avg-note">Без разовых, спорта и учёбы, транспорт — только NS · ${A.capped?"за последние 6 месяцев":`по данным за ${wk} ${wk%10===1&&wk%100!==11?"неделю":wk%10>=2&&wk%10<=4&&(wk%100<10||wk%100>=20)?"недели":"недель"}`}</p></section>`;
+  </div><p class="note avg-note">Без разовых, спорта и учёбы, транспорт — только NS · ${A.capped?"за последние 6 месяцев":`по данным за ${wk} ${wk%10===1&&wk%100!==11?"неделю":wk%10>=2&&wk%10<=4&&(wk%100<10||wk%100>=20)?"недели":"недель"}`}</p>${planBlock(A,amt)}</section>`;
+}
+/* «Чтобы идти по плану»: what you need to earn = all your usual spending (every category, one-offs apart)
+   + the KAI weekly norm, next to what you actually earn on average (regular income, same window). */
+function planBlock(A,amt){
+  const K=kNow();if(!K.m)return"";const need=K.m.budgets[UI.budget].KAI.need;if(!(need>0))return"";
+  const needD=A.allReg+need/7,diff=A.inc-needD,ok=diff>=0;
+  return `<p class="section-label" style="margin-top:20px"><span>Чтобы идти по плану KAI</span></p><div class="list avg plan">
+    <div class="row avg-row"><div class="mid"><div class="t">Нужно зарабатывать</div><div class="s wrap">все траты без разовых ${amt("pall",A.allReg)} + норма KAI ${amt("pnorm",need/7)}</div></div><span class="amt num">${amt("pneed",needD)}</span></div>
+    <div class="row avg-row"><div class="mid"><div class="t">Зарабатываешь в среднем</div><div class="s"><span class="${ok?"pos-t":"neg-t"}">${ok?"запас":"не хватает"} ${amt("pdiff",Math.abs(diff))}</span></div></div><span class="amt num">${amt("pinc",A.inc)}</span></div>
+  </div>`;
 }
 function goalLine(){
   const K=kNow();if(!K.m)return"";const g=K.m.budgets[UI.budget].KAI,p=Math.max(0,Math.min(1,g.progress));
