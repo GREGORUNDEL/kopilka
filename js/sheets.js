@@ -288,15 +288,15 @@ function openKSettings(){
   const auto=rateAt(todayIso());
   sh.body.innerHTML=`<p class="section-label" style="margin-bottom:-10px">Курс иены</p><div class="form"><div class="field"><label for="sRate">Ручной курс<small>${auto?"пусто — авто, сейчас "+nf2.format(auto.rate)+" ("+dm(parseD(auto.date))+")":"пусто — брать автоматический"}</small></label><input id="sRate" inputmode="decimal" placeholder="авто" value="${typeof c.manualRate==="number"?esc(String(c.manualRate).replace(".",",")):""}"></div></div>
     <p class="section-label" style="margin-bottom:-10px">Цель</p><div class="form">
-    ${[["sMine","Мой бюджет","¥ в месяц",c.mine],["sComfort","Комфорт","¥ в месяц",c.comfort],["sMonths","Месяцев жизни","",c.months],["sSNG","Школа SNG","¥ за весь курс",c.SNG],["sKAI","Школа KAI","¥ за весь курс",c.KAI],["sExtra","Доп. расходы","€, билет, телефон, рисоварка",c.extraEur]].map(([id,l,s,v])=>`<div class="field"><label for="${id}">${l}${s?`<small>${s}</small>`:""}</label><input id="${id}" inputmode="numeric" value="${esc(v)}"></div>`).join("")}</div>
+    ${[["sMine","Мой бюджет","¥ в месяц",c.mine],["sComfort","Комфорт","¥ в месяц",c.comfort],["sMonths","Месяцев жизни","",c.months],["sSNG","Школа SNG","¥ за весь курс",c.SNG],["sKAI","Школа KAI","¥ за весь курс",c.KAI],["sExtra","Доп. расходы","€, билет, телефон, рисоварка",c.extraEur],["sTutor","Преподаватель","€, для всех целей",c.tutorEur]].map(([id,l,s,v])=>`<div class="field"><label for="${id}">${l}${s?`<small>${s}</small>`:""}</label><input id="${id}" inputmode="numeric" value="${esc(v)}"></div>`).join("")}</div>
     <p class="section-label" style="margin-bottom:-10px">Срок и выплаты</p><div class="form">
     <div class="field"><label for="sDeadline">Последний день</label><input type="date" id="sDeadline" value="${esc(c.deadline)}"></div>
     <div class="field"><label for="sHoliday">Отпускные<small>€, лето 2027 + выплата при увольнении</small></label><input id="sHoliday" inputmode="numeric" value="${esc(c.holidayEur)}"></div>
     <div class="field"><label for="sWindow">Окно темпа<small>недель для среднего</small></label><input id="sWindow" inputmode="numeric" value="${esc(c.window)}"></div>
     <div class="field"><label for="sLedger">Недели из операций с<small>раньше — ручные недели</small></label><input type="date" id="sLedger" value="${esc(ledgerStart())}"></div></div>`;
   function save(){const r=$("sRate").value.trim();const n={manualRate:r?num(r):null,mine:num($("sMine").value),comfort:num($("sComfort").value),months:num($("sMonths").value),SNG:num($("sSNG").value),KAI:num($("sKAI").value),
-      extraEur:num($("sExtra").value),deadline:$("sDeadline").value,holidayEur:num($("sHoliday").value),window:Math.max(1,Math.round(num($("sWindow").value))),extraPayouts:c.extraPayouts};
-    for(const k of ["mine","comfort","months","SNG","KAI","extraEur","holidayEur","window"])if(!isFinite(n[k])||n[k]<0)return err(sh.body,"Проверь поля: все суммы должны быть числами.");
+      extraEur:num($("sExtra").value),tutorEur:num($("sTutor").value),deadline:$("sDeadline").value,holidayEur:num($("sHoliday").value),window:Math.max(1,Math.round(num($("sWindow").value))),extraPayouts:c.extraPayouts};
+    for(const k of ["mine","comfort","months","SNG","KAI","extraEur","tutorEur","holidayEur","window"])if(!isFinite(n[k])||n[k]<0)return err(sh.body,"Проверь поля: все суммы должны быть числами.");
     if(n.manualRate!==null&&!(n.manualRate>50))return err(sh.body,"Курс выглядит неверно.");if(!n.deadline)return err(sh.body,"Укажи последний день.");
     const t=nowIso();D.kopilka.config={...n,updatedAt:t};const lv=$("sLedger").value;if(lv&&lv!==ledgerStart())D.settings={...settings(),ledgerStart:iso(mondayOf(parseD(lv))),updatedAt:t};
     closeSheet();changed()}

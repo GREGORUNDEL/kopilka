@@ -92,6 +92,9 @@ document.addEventListener("click",e=>{
     case "syncsheet":case "settings":openSettings();break;
     case "accpick":openAccPick(sc);break;
     case "hidebal":UI.hideBal=!UI.hideBal;render();break;
+    case "planscale":{if(v!=="week"&&v!=="month")break;const was=UI.planScale==="month"?30.4375:7,f=v==="month"?30.4375:7;if(was===f)break;UI.planScale=v;
+      document.querySelectorAll('[data-act="planscale"]').forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.v===v)));
+      document.querySelectorAll("[data-plan]").forEach(n=>{const d=+n.dataset.d;if(reduceMotion())n.textContent=FMT.eur(d*f);else rollNum(n,d*was,d*f,FMT.eur,420)});break}
     case "avgscale":{const sc=AVG_SCALES.find(x=>x[0]===v);if(!sc||UI.avgScale===v)break;const was=(AVG_SCALES.find(x=>x[0]===(UI.avgScale||"month"))||AVG_SCALES[2])[2];
       UI.avgScale=v;document.querySelectorAll('#ovAvg [data-act="avgscale"]').forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.v===v)));
       const fmt=v==="day"?FMT.nf2:FMT.eur;document.querySelectorAll("#ovAvg [data-avg]").forEach(n=>{const d=+n.dataset.d;

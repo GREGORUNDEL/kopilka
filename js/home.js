@@ -128,7 +128,11 @@ function avgCard(){
 function planBlock(A,amt){
   const K=kNow();if(!K.m)return"";const need=K.m.budgets[UI.budget].KAI.need;if(!(need>0))return"";
   const needD=A.allReg+need/7,diff=A.inc-needD,ok=diff>=0;
+  // its own scale: you are paid weekly, so it opens on «Неделя»
+  const ps=UI.planScale==="month"?"month":"week",f=ps==="month"?30.4375:7,F=FMT.eur;
+  amt=(key,d)=>`<span data-plan="${key}" data-d="${d}">${F(d*f)}</span> €`;
   return `<p class="section-label" style="margin-top:20px"><span>Чтобы идти по плану KAI</span></p><div class="list avg plan">
+    <div class="avg-top"><div class="seg" role="group" aria-label="Период">${[["week","В неделю"],["month","В месяц"]].map(([k,l])=>`<button data-act="planscale" data-v="${k}" aria-pressed="${ps===k}">${l}</button>`).join("")}</div></div>
     <div class="row avg-row"><div class="mid"><div class="t">Нужно зарабатывать</div><div class="s wrap">все траты без разовых ${amt("pall",A.allReg)} + норма KAI ${amt("pnorm",need/7)}</div></div><span class="amt num">${amt("pneed",needD)}</span></div>
     <div class="row avg-row"><div class="mid"><div class="t">Зарабатываешь в среднем</div><div class="s"><span class="${ok?"pos-t":"neg-t"}">${ok?"запас":"не хватает"} ${amt("pdiff",Math.abs(diff))}</span></div></div><span class="amt num">${amt("pinc",A.inc)}</span></div>
   </div>`;

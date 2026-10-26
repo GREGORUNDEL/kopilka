@@ -4,7 +4,7 @@
 
 /* ================= constants ================= */
 const DAY=864e5, KEY="finance.v1", AKEY="kopilka.auth", DEFAULT_REPO="GREGORUNDEL/kopilka-data", DATA_PATH="finance.json";
-const KDEF={deadline:"2028-03-12",months:24,mine:210000,comfort:180000,SNG:1840000,KAI:2270000,extraEur:3000,holidayEur:2600,window:13,extraPayouts:1,manualRate:null};
+const KDEF={deadline:"2028-03-12",months:24,mine:210000,comfort:180000,SNG:1840000,KAI:2270000,extraEur:3000,tutorEur:1000,holidayEur:2600,window:13,extraPayouts:1,manualRate:null};
 const CUR_SYM={EUR:"€",UAH:"₴",USD:"$",JPY:"¥",GBP:"£",PLN:"zł",CZK:"Kč",CHF:"Fr"};
 const CURRENCIES=["EUR","UAH","USD","JPY","GBP","PLN","CZK","CHF"];
 const PALETTE=["#E04B4B","#C8442E","#DE7330","#E8873A","#D9A62E","#C9B21F","#8DB33A","#6FA84E",
@@ -150,6 +150,7 @@ function resetTransient(){let ch=false;
   if(UI.budgetOpen){UI.budgetOpen=false;ch=true}
   if(UI.ov.open){UI.ov.open=null;ch=true}
   if(UI.avgScale&&UI.avgScale!=="month"){UI.avgScale="month";ch=true}
+  if(UI.planScale&&UI.planScale!=="week"){UI.planScale="week";ch=true}
   if(UI.opsPrev){UI.ops={...UI.opsPrev,q:""};UI.opsPrev=null;ch=true}
   else if(UI.ops.cat||UI.ops.tag){UI.ops.cat=null;UI.ops.tag=null;ch=true}
   return ch}
@@ -184,7 +185,7 @@ function kopWeeks(){
 }
 function rateAt(dateIso){const keys=Object.keys(D.rates||{}).sort();let best=null;for(const k of keys){if(k<=dateIso)best=k;else break}if(!best&&keys.length)best=keys[0];return best?{date:best,rate:D.rates[best]}:null}
 function jpyRate(){const c=kcfg();if(typeof c.manualRate==="number"&&c.manualRate>0)return{rate:c.manualRate,date:null,manual:true};const r=rateAt(todayIso());return r?{...r,manual:false}:null}
-const goal=(budgetYen,schoolYen,rate,c)=>(budgetYen*c.months+schoolYen)/rate+c.extraEur;
+const goal=(budgetYen,schoolYen,rate,c)=>(budgetYen*c.months+schoolYen)/rate+c.extraEur+(c.tutorEur||0); // tutorEur: private teacher, same for every goal
 function kMetrics(ws,rate,c){
   if(!ws.length||!rate)return null;
   const last=ws[ws.length-1],lastSun=parseD(last.monday)+6*DAY;
