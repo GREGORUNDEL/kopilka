@@ -127,7 +127,6 @@ function openOp(id,preset){
 }
 function weekToast(o){
   const mon=iso(mondayOf(parseD(o.date)));const base=(o.type==="expense"?"−":"+")+money(o.amount,accCur(o.accountId))+" записано";
-  if(mon<ledgerStart())return base+". Неделя "+dm(parseD(mon))+" ведётся в Копилке вручную.";
   if(mon===iso(mondayOf(todayMs()))&&o.type==="expense"&&!o.oneoff){const B=weekBudget();if(B)return base+(B.left>=0?` · осталось ${eur(B.left)} € на неделю`:` · перерасход ${eur(-B.left)} €`)}
   const st=weekStatus(mon);if(!st||!st.w)return base;const w=st.w,rv=reg(w),diff=rv-st.need;
   return base+` · неделя ${signed(w.saved)} €, `+(diff>=0?`выше нормы на ${eur(diff)}`:`до нормы ${eur(-diff)}`);
@@ -259,42 +258,20 @@ function openAccount(id){
   draw();
 }
 
-/* ---- kopilka: manual week + settings ---- */
-function openKWeek(monday){
-  const ls=ledgerStart();const ex=monday?(D.kopilka.weeks||{})[monday]:null;
-  const st={del:false};const ws=kopWeeks().filter(w=>w.legacy);const last=ws[ws.length-1];
-  const sh=openSheet({title:ex?"Неделя вручную":"Новая неделя",right:{label:"Сохранить",fn:save}});
-  const defMon=ex?ex.monday:iso(Math.min(last?parseD(last.monday)+7*DAY:mondayOf(todayMs()),parseD(ls)-7*DAY));
-  sh.body.innerHTML=`<p class="hint" style="margin-top:0">Ручные недели — до ${dmy(parseD(ls))}. С этой даты недели считаются из операций.</p>
-    <div class="form"><div class="field"><label for="kmon">Понедельник</label><input type="date" id="kmon" value="${esc(defMon)}" max="${esc(iso(parseD(ls)-DAY))}"></div>
-    <div class="field"><label for="ksaved">Отложено за неделю<small>в евро, может быть минус</small></label><input id="ksaved" inputmode="decimal" value="${ex?esc(String(ex.saved).replace(".",",")):""}" placeholder="0"></div>
-    <div class="field"><label for="kbal">Итоговый остаток<small>необязательно</small></label><input id="kbal" inputmode="decimal" value="${ex&&typeof ex.balance==="number"?esc(String(ex.balance).replace(".",",")):""}" placeholder="—"></div></div>
-    <div class="form"><div class="field"><label for="kone">Разовые траты</label><input id="kone" inputmode="decimal" value="${ex&&ex.oneoff?esc(String(ex.oneoff).replace(".",",")):""}" placeholder="0"></div>
-    <div class="field"><label for="kinc">Разовый доход</label><input id="kinc" inputmode="decimal" value="${ex&&ex.income?esc(String(ex.income).replace(".",",")):""}" placeholder="0"></div>
-    <div class="field"><label for="knote">За что</label><input id="knote" maxlength="40" value="${esc(ex&&ex.note||"")}" placeholder="—"></div></div>
-    ${ex?'<button class="btn danger" id="kdel">Удалить неделю</button>':""}`;
-  if(ex)$("kdel").onclick=()=>{if(!st.del){st.del=true;$("kdel").classList.add("confirm");$("kdel").textContent="Нажми ещё раз, чтобы удалить";return}D.kopilka.weeks[ex.monday]={monday:ex.monday,deleted:true,updatedAt:nowIso()};closeSheet();changed()};
-  function save(){const v=$("kmon").value;if(!v)return err(sh.body,"Выбери дату.");const m=iso(mondayOf(parseD(v)));if(m>=ls)return err(sh.body,"Эта неделя уже считается из операций.");
-    const saved=num($("ksaved").value);if(!isFinite(saved))return err(sh.body,"Введи сумму, отложенную за неделю.");
-    const bal=$("kbal").value.trim()?num($("kbal").value):null,one=$("kone").value.trim()?num($("kone").value):0,inc=$("kinc").value.trim()?num($("kinc").value):0;
-    if((bal!=null&&!isFinite(bal))||!(one>=0)||!(inc>=0))return err(sh.body,"Проверь суммы: разовые без минуса.");
-    const t=nowIso();if(ex&&ex.monday!==m)D.kopilka.weeks[ex.monday]={monday:ex.monday,deleted:true,updatedAt:t};
-    const w={monday:m,saved:r2(saved),updatedAt:t};if(bal!=null)w.balance=r2(bal);if(one>0)w.oneoff=r2(one);if(inc>0)w.income=r2(inc);const note=$("knote").value.trim();if(note)w.note=note;
-    D.kopilka.weeks[m]=w;closeSheet();changed()}
-}
+/* ---- kopilka settings ---- */
 function openKSettings(){
   const c=kcfg();
   const sh=openSheet({title:"Настройки Копилки",tall:true,right:{label:"Сохранить",fn:save}});
   const auto=rateAt(todayIso());
   sh.body.innerHTML=`<p class="section-label" style="margin-bottom:-10px">Курс иены</p><div class="form"><div class="field"><label for="sRate">Ручной курс<small>${auto?"пусто — авто, сейчас "+nf2.format(auto.rate)+" ("+dm(parseD(auto.date))+")":"пусто — брать автоматический"}</small></label><input id="sRate" inputmode="decimal" placeholder="авто" value="${typeof c.manualRate==="number"?esc(String(c.manualRate).replace(".",",")):""}"></div></div>
     <p class="section-label" style="margin-bottom:-10px">Цель</p><div class="form">
-    ${[["sMine","Мой бюджет","¥ в месяц",c.mine],["sComfort","Комфорт","¥ в месяц",c.comfort],["sMonths","Месяцев жизни","",c.months],["sSNG","Школа SNG","¥ за весь курс",c.SNG],["sKAI","Школа KAI","¥ за весь курс",c.KAI],["sExtra","Доп. расходы","€, билет, телефон, рисоварка",c.extraEur],["sTutor","Преподаватель","€, для всех целей",c.tutorEur]].map(([id,l,s,v])=>`<div class="field"><label for="${id}">${l}${s?`<small>${s}</small>`:""}</label><input id="${id}" inputmode="numeric" value="${esc(v)}"></div>`).join("")}</div>
+    ${[["sMine","Мой бюджет","¥ в месяц",c.mine],["sComfort","Минимум","¥ в месяц",c.comfort],["sMonths","Месяцев жизни","",c.months],...(SHOW_SNG?[["sSNG","Школа SNG","¥ за весь курс",c.SNG]]:[]),["sKAI","Школа KAI","¥ за весь курс",c.KAI],["sExtra","Доп. расходы","€, билет, телефон, рисоварка",c.extraEur],["sTutor","Преподаватель","€, для всех целей",c.tutorEur]].map(([id,l,s,v])=>`<div class="field"><label for="${id}">${l}${s?`<small>${s}</small>`:""}</label><input id="${id}" inputmode="numeric" value="${esc(v)}"></div>`).join("")}</div>
     <p class="section-label" style="margin-bottom:-10px">Срок и выплаты</p><div class="form">
     <div class="field"><label for="sDeadline">Последний день</label><input type="date" id="sDeadline" value="${esc(c.deadline)}"></div>
     <div class="field"><label for="sHoliday">Отпускные<small>€, лето 2027 + выплата при увольнении</small></label><input id="sHoliday" inputmode="numeric" value="${esc(c.holidayEur)}"></div>
     <div class="field"><label for="sWindow">Окно темпа<small>недель для среднего</small></label><input id="sWindow" inputmode="numeric" value="${esc(c.window)}"></div>
     <div class="field"><label for="sLedger">Недели из операций с<small>раньше — ручные недели</small></label><input type="date" id="sLedger" value="${esc(ledgerStart())}"></div></div>`;
-  function save(){const r=$("sRate").value.trim();const n={manualRate:r?num(r):null,mine:num($("sMine").value),comfort:num($("sComfort").value),months:num($("sMonths").value),SNG:num($("sSNG").value),KAI:num($("sKAI").value),
+  function save(){const r=$("sRate").value.trim();const n={manualRate:r?num(r):null,mine:num($("sMine").value),comfort:num($("sComfort").value),months:num($("sMonths").value),SNG:$("sSNG")?num($("sSNG").value):c.SNG,KAI:num($("sKAI").value),
       extraEur:num($("sExtra").value),tutorEur:num($("sTutor").value),deadline:$("sDeadline").value,holidayEur:num($("sHoliday").value),window:Math.max(1,Math.round(num($("sWindow").value))),extraPayouts:c.extraPayouts};
     for(const k of ["mine","comfort","months","SNG","KAI","extraEur","tutorEur","holidayEur","window"])if(!isFinite(n[k])||n[k]<0)return err(sh.body,"Проверь поля: все суммы должны быть числами.");
     if(n.manualRate!==null&&!(n.manualRate>50))return err(sh.body,"Курс выглядит неверно.");if(!n.deadline)return err(sh.body,"Укажи последний день.");

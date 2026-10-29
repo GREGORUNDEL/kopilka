@@ -89,53 +89,61 @@ function renderOverview(){
 }
 const bl=s=>String(s).replace(/[+−-]?\d(?:[\d\u00a0\u202f]*\d)?(?:[.,]\d+)?/g,m=>`<span class="vn">${m}</span>`);
 const eyeBtn=()=>`<button class="icon-btn" data-act="hidebal" aria-label="${UI.hideBal?"Показать баланс":"Скрыть баланс"}" aria-pressed="${!!UI.hideBal}">${svgI(UI.hideBal?"eyeOff":"eye")}</button>`;
-/* «В среднем»: regular spending per category (one-offs apart) from the first full week of records up to
-   yesterday, as an average per day scaled to a day / week / month / year. Opens on «Месяц» every time. */
-/* what counts as everyday life here: no sport or education, and transport is only the NS train */
-const AVG_SKIP=["sport","edu"],AVG_ONLY_TAG={transport:"NS"},AVG_WINDOW=26*7;
-const AVG_SCALES=[["day","День",1],["week","Неделя",7],["month","Месяц",30.4375],["year","Год",365.25]];
+/* «В среднем»: what everyday life costs. Rows are the mandatory spending — expenses whose category or tag is
+   marked «обязательная» (food, rent, NS, subscriptions, laundry…; see opKind) — per category, then everything else
+   regular as one «Остальное» line, one-offs apart. Averages are over finished weeks only (salary and rent arrive in
+   lumps, a half week skews them), at most the last 26, from settings.avgFrom if set (e.g. the move to Japan). */
+const AVG_SCALES=[["day","День",1],["week","Неделя",7],["month","Месяц",30.4375],["year","Год",365.25]],AVG_WINDOW=26*7;
+const isMandatory=o=>{const k=opKind(o);return k==="daily"||k==="monthly"};
 function avgData(){
-  const today=todayMs(),ops=opsList().filter(o=>o.type==="expense"&&!(account(o.accountId)||{}).exclude);
-  if(!ops.length)return null;
-  // window: from the first full week of records (or settings.avgFrom, e.g. the move to Japan) to the end of last week,
-  // but never longer than the last ~6 months, so old habits fade out of the averages
-  const first=parseD(ops.reduce((m,o)=>o.date<m?o.date:m,"9999"));let start=mondayOf(first);if(first>start)start+=7*DAY;
+  const today=todayMs(),exp=opsList().filter(o=>o.type==="expense"&&!(account(o.accountId)||{}).exclude);
+  if(!exp.length)return null;
+  const first=parseD(exp.reduce((m,o)=>o.date<m?o.date:m,"9999"));let start=mondayOf(first);if(first>start)start+=7*DAY;
   const from=settings().avgFrom;if(from){let f=mondayOf(parseD(from));if(f<parseD(from))f+=7*DAY;start=Math.max(start,f)}
-  const end=mondayOf(today),cap=end-AVG_WINDOW*DAY,capped=start<cap;if(capped)start=cap; // finished weeks only
+  const end=mondayOf(today),cap=end-AVG_WINDOW*DAY,capped=start<cap;if(capped)start=cap;
   const days=Math.round((end-start)/DAY);if(days<7)return null;
-  const by={};let one=0,allReg=0,inc=0;
-  for(const o of opsList()){if(o.type!=="income"||o.oneoff||(account(o.accountId)||{}).exclude)continue;const t=parseD(o.date);if(t>=start&&t<end)inc+=opEUR(o)}
-  for(const o of ops){const t=parseD(o.date);if(t<start||t>=end)continue;const v=opEUR(o);
-    if(o.oneoff){one+=v;continue}allReg+=v;const k=o.categoryId||"_";if(AVG_SKIP.includes(k))continue;
-    const only=AVG_ONLY_TAG[k];if(only&&!(o.tagIds||[]).some(t=>(D.tags[t]||{}).name===only))continue;
-    by[k]=(by[k]||0)+v}
-  const rows=Object.entries(by).filter(([,v])=>v/days*30.4375>=1) /* skip categories under 1 € a month */.map(([id,v])=>({id,d:v/days,c:category(id)||{name:"Без категории",color:"#8E8E93",icon:"help-circle"}})).sort((a,b)=>b.d-a.d);
-  return{rows,total:rows.reduce((a,r)=>a+r.d,0),one:one/days,allReg:allReg/days,inc:inc/days,days,capped}
+  const by={},tagsBy={},otherBy={};let one=0,other=0,inc=0;
+  for(const o of opsList()){const t=parseD(o.date);if(t<start||t>=end||(account(o.accountId)||{}).exclude)continue;const v=opEUR(o);
+    if(o.type==="income"){if(!o.oneoff)inc+=v;continue}
+    if(o.type!=="expense")continue;
+    if(o.oneoff){one+=v;continue}
+    const k=o.categoryId||"_";
+    if(!isMandatory(o)){other+=v;otherBy[k]=(otherBy[k]||0)+v;continue}
+    by[k]=(by[k]||0)+v;
+    const c=category(k);if(!(c&&c.fixed)){(tagsBy[k]=tagsBy[k]||new Set);for(const x of o.tagIds||[]){const tg=D.tags[x];if(tg&&tg.fixed)tagsBy[k].add(tg.name)}}}
+  const rows=Object.entries(by).map(([id,v])=>({id,d:v/days,tags:tagsBy[id]?[...tagsBy[id]]:[],c:category(id)||{name:"Без категории",color:"#8E8E93",icon:"help-circle"}})).sort((a,b)=>b.d-a.d);
+  const otherTop=Object.entries(otherBy).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([id])=>(category(id)||{name:"без категории"}).name.toLowerCase());
+  const mand=rows.reduce((a,r)=>a+r.d,0);
+  return{rows,mand,other:other/days,otherTop,total:mand+other/days,one:one/days,allReg:mand+other/days,inc:inc/days,days,capped}
 }
+const weeksWord=n=>n%10===1&&n%100!==11?"неделю":n%10>=2&&n%10<=4&&(n%100<10||n%100>=20)?"недели":"недель";
 function avgCard(){
   const A=avgData();if(!A||!A.rows.length)return"";
   const sc=AVG_SCALES.find(x=>x[0]===(UI.avgScale||"month"))||AVG_SCALES[2],f=sc[2],fmt=sc[0]==="day"?"nf2":"eur",F=FMT[fmt];
-  const max=A.rows[0].d,wk=Math.round(A.days/7);
+  const max=Math.max(A.rows[0].d,A.other),wk=Math.round(A.days/7);
   const amt=(key,d)=>`<span data-avg="${key}" data-d="${d}">${F(d*f)}</span> €`;
+  const bar=(d,col)=>`<div class="bar"><i style="width:${(d/max*100).toFixed(1)}%;background:${col}"></i></div>`;
   return `<section id="ovAvg"><p class="section-label"><span>В среднем</span></p><div class="list avg">
     <div class="avg-top"><div class="seg" role="group" aria-label="Период">${AVG_SCALES.map(([k,l])=>`<button data-act="avgscale" data-v="${k}" aria-pressed="${sc[0]===k}">${l}</button>`).join("")}</div></div>
-    ${A.rows.map(r=>`<div class="row avg-row">${catIc(r.c)}<div class="mid"><div class="t">${esc(r.c.name)}${AVG_ONLY_TAG[r.id]?` · ${esc(AVG_ONLY_TAG[r.id])}`:""}</div><div class="bar"><i style="width:${(r.d/max*100).toFixed(1)}%;background:${esc(r.c.color)}"></i></div></div><span class="amt num">${amt("c:"+r.id,r.d)}</span></div>`).join("")}
+    ${A.rows.map(r=>`<div class="row avg-row">${catIc(r.c)}<div class="mid"><div class="t">${esc(r.c.name)}${r.tags.length?` · ${esc(r.tags.join(", "))}`:""}</div>${bar(r.d,esc(r.c.color))}</div><span class="amt num">${amt("c:"+r.id,r.d)}</span></div>`).join("")}
+    <div class="row avg-row total"><div class="mid"><div class="t">Обязательные</div></div><span class="amt num">${amt("mand",A.mand)}</span></div>
+    ${A.other>0?`<div class="row avg-row"><span class="ic" style="background:var(--surface-sunken);color:var(--ink-muted)">${svgI("cats")}</span><div class="mid"><div class="t">Остальное</div><div class="s">${esc(A.otherTop.join(", "))}</div>${bar(A.other,"var(--ink-muted)")}</div><span class="amt num">${amt("other",A.other)}</span></div>`:""}
     <div class="row avg-row total"><div class="mid"><div class="t">Всего</div>${A.one>0?`<div class="s">плюс разовые ≈ ${amt("one",A.one)}</div>`:""}</div><span class="amt num">${amt("total",A.total)}</span></div>
-  </div><p class="note avg-note">Без разовых, спорта и учёбы, транспорт — только NS · ${A.capped?"за последние 6 месяцев":`по данным за ${wk} ${wk%10===1&&wk%100!==11?"неделю":wk%10>=2&&wk%10<=4&&(wk%100<10||wk%100>=20)?"недели":"недель"}`}</p>${planBlock(A,amt)}</section>`;
+  </div><p class="note avg-note">Обязательные — с пометкой «обязательная трата» у категории или тега · ${A.capped?"за последние 6 месяцев":`по данным за ${wk} ${weeksWord(wk)}`}</p></section>`;
 }
-/* «Чтобы идти по плану»: what you need to earn = all your usual spending (every category, one-offs apart)
-   + the KAI weekly norm, next to what you actually earn on average (regular income, same window). */
-function planBlock(A,amt){
-  const K=kNow();if(!K.m)return"";const need=K.m.budgets[UI.budget].KAI.need;if(!(need>0))return"";
+/* «Чтобы идти по плану»: what you need to earn = all your usual spending (mandatory + the rest, one-offs apart)
+   + the KAI weekly norm, next to what you actually earn on average (regular income, same finished weeks).
+   Lives on the Japan tab; its own «В неделю / В месяц» switch opens on the week, since pay is weekly. */
+function planCard(){
+  const A=avgData(),K=kNow();if(!A||!K.m)return"";const need=K.m.budgets[UI.budget].KAI.need;if(!(need>0))return"";
   const needD=A.allReg+need/7,diff=A.inc-needD,ok=diff>=0;
-  // its own scale: you are paid weekly, so it opens on «Неделя»
   const ps=UI.planScale==="month"?"month":"week",f=ps==="month"?30.4375:7,F=FMT.eur;
-  amt=(key,d)=>`<span data-plan="${key}" data-d="${d}">${F(d*f)}</span> €`;
-  return `<p class="section-label" style="margin-top:20px"><span>Чтобы идти по плану KAI</span></p><div class="list avg plan">
+  const amt=(key,d)=>`<span data-plan="${key}" data-d="${d}">${F(d*f)}</span> €`;
+  return `<section id="kPlan"><p class="section-label"><span>Чтобы идти по плану</span></p><div class="list avg plan">
     <div class="avg-top"><div class="seg" role="group" aria-label="Период">${[["week","В неделю"],["month","В месяц"]].map(([k,l])=>`<button data-act="planscale" data-v="${k}" aria-pressed="${ps===k}">${l}</button>`).join("")}</div></div>
-    <div class="row avg-row"><div class="mid"><div class="t">Нужно зарабатывать</div><div class="s wrap">все траты без разовых ${amt("pall",A.allReg)} + норма KAI ${amt("pnorm",need/7)}</div></div><span class="amt num">${amt("pneed",needD)}</span></div>
+    <div class="row avg-row"><div class="mid"><div class="t">Нужно зарабатывать</div><div class="s wrap">обязательные ${amt("pmand",A.mand)} + остальное ${amt("pother",A.other)} + норма KAI ${amt("pnorm",need/7)}</div></div><span class="amt num">${amt("pneed",needD)}</span></div>
     <div class="row avg-row"><div class="mid"><div class="t">Зарабатываешь в среднем</div><div class="s"><span class="${ok?"pos-t":"neg-t"}">${ok?"запас":"не хватает"} ${amt("pdiff",Math.abs(diff))}</span></div></div><span class="amt num">${amt("pinc",A.inc)}</span></div>
-  </div>`;
+  </div><p class="note avg-note">Траты без разовых · ${A.capped?"за последние 6 месяцев":`по данным за ${Math.round(A.days/7)} ${weeksWord(Math.round(A.days/7))}`}</p></section>`;
 }
 function goalLine(){
   const K=kNow();if(!K.m)return"";const g=K.m.budgets[UI.budget].KAI,p=Math.max(0,Math.min(1,g.progress));

@@ -125,14 +125,15 @@ function renderKopilka(){
     <div class="hero-row"><div class="stat"><div class="v num"><span data-roll="kPace" data-v="${m.pace.toFixed(2)}" data-fmt="eur">${eur(m.pace)}</span></div><div class="k">€ в неделю</div><div class="d">за ${m.win} нед${Math.abs(m.netPace-m.pace)>=1?"<br>с разовыми "+eur(m.netPace):""}</div></div>
     <div class="stat"><div class="v num">${m.left}</div><div class="k">недель <span class="jp">あと</span></div><div class="d">до ${dmy(parseD(c.deadline))}</div></div>
     <div class="stat"><div class="v num">${nf1.format(cr.rate)}</div><div class="k">¥ за 1 €</div><div class="d">${cr.manual?"вручную":"курс на "+dm(parseD(cr.date))}</div></div></div></section>`;
-  h+=`<div class="seg" id="kSeg" role="group" aria-label="Бюджет жизни"><button data-act="budget" data-v="mine" aria-pressed="${UI.budget==="mine"}">Мой бюджет<span>¥${nf0.format(c.mine)}/мес</span></button><button data-act="budget" data-v="comfort" aria-pressed="${UI.budget==="comfort"}">Комфорт<span>¥${nf0.format(c.comfort)}/мес</span></button></div>`;
-  h+=`<section class="schools" id="kSchools">`+["SNG","KAI"].map((s,i)=>{const x=b[s],col=i?"var(--series-2)":"var(--series-1)",C=2*Math.PI*22,p=Math.max(0,Math.min(1,x.progress));
+  h+=`<div class="seg" id="kSeg" role="group" aria-label="Бюджет жизни"><button data-act="budget" data-v="mine" aria-pressed="${UI.budget==="mine"}">Мой бюджет<span>¥${nf0.format(c.mine)}/мес</span></button><button data-act="budget" data-v="comfort" aria-pressed="${UI.budget==="comfort"}">Минимум<span>¥${nf0.format(c.comfort)}/мес</span></button></div>`;
+  h+=`<section class="schools${SCHOOLS().length===1?" one":""}" id="kSchools">`+SCHOOLS().map(s=>{const x=b[s],col=s==="KAI"?"var(--series-2)":"var(--series-1)",C=2*Math.PI*22,p=Math.max(0,Math.min(1,x.progress));
     return `<article class="card school"><div class="school-top"><svg class="ring" viewBox="0 0 52 52" role="img" aria-label="${s}: ${nf1.format(x.progress*100)}%"><circle class="track" cx="26" cy="26" r="22"/>
       <circle class="fill" data-ring="${s}" cx="26" cy="26" r="22" stroke="${col}" stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${(C*(1-p)).toFixed(1)}"/><text class="vn" x="26" y="27" data-roll="kP${s}" data-v="${(x.progress*100).toFixed(2)}" data-fmt="pct">${nf0.format(x.progress*100)}%</text></svg>
       <div style="min-width:0"><h3><span class="dot" style="background:${col}"></span>${s}</h3><div class="goal">цель <span class="vn num"><span data-roll="kG${s}" data-v="${x.goal.toFixed(2)}" data-fmt="eur">${eur(x.goal)}</span> €</span></div></div></div>
       <div class="rows"><div class="r"><span class="k">Нужно в нед.</span><span class="v num"><span data-roll="kN${s}" data-v="${x.need.toFixed(2)}" data-fmt="eur">${eur(x.need)}</span></span></div>
       <div class="r"><span class="k">Прогноз</span><span class="pill num ${x.fc>=0?"pos":"neg"}">${signed(x.fc)}</span></div>
       <div class="r"><span class="k">+ отпускные</span><span class="v num ${x.fcH>=0?"pos-t":"neg-t"}">${signed(x.fcH)}</span></div></div></article>`}).join("")+`</section>`;
+  h+=planCard();
   h+=`<section id="kChanges"><p class="section-label">Что изменилось за неделю</p><div class="card changes">${kChanges(ws,m,cr)}</div></section>`;
   h+=`<section id="kWeeks"><p class="section-label">Недели</p><div class="list flat">${kWeekList(ws)}</div></section>`;
   h+=`</div><div class="kcol">`;
@@ -165,7 +166,7 @@ function kChanges(ws,m,cr){
   let h=row("Неделя "+dm(parseD(last.monday))+"–"+dm(parseD(last.monday)+6*DAY),signed(last.saved)+" € · норма KAI "+eur(nd),hasX(last)?"":(last.saved>=nd?"pos-t":"neg-t"));
   if(hasX(last))h+=row("Без разовых"+(last.note?"<small>"+esc(last.note)+"</small>":""),signed(lr)+" €",lr>=nd?"pos-t":"neg-t");
   h+=row("Темп",eur(pm.pace)+" → "+eur(m.pace)+" ("+dp.t+")",dp.c);
-  h+=row("Прогноз SNG",signed(old.SNG.fc)+" → "+signed(cur.SNG.fc),dS.c);
+  if(SHOW_SNG)h+=row("Прогноз SNG",signed(old.SNG.fc)+" → "+signed(cur.SNG.fc),dS.c);
   h+=row("Прогноз KAI",signed(old.KAI.fc)+" → "+signed(cur.KAI.fc),dK.c);
   h+=row("Цель KAI от курса",(gd>0?"дороже на ":"дешевле на ")+eur(Math.abs(gd))+" €",gd>0?"neg-t":"pos-t");
   return h;
@@ -174,8 +175,8 @@ function kWeekList(ws){
   if(!ws.length)return'<div class="empty">Пока нет недель.</div>';
   const all=ws.slice().reverse(),lim=UI.showAllWeeks?all:all.slice(0,6);
   return lim.map(w=>{const t=parseD(w.monday);
-    const sub=(typeof w.balance==="number"?"остаток "+eur(w.balance)+" €":"")+((w.oneoff||0)>0?" · разовые −"+eur(w.oneoff):"")+((w.income||0)>0?" · доход +"+eur(w.income):"")+(w.computed?"":" · вручную");
-    return `<button class="row" ${w.computed?`data-act="weekops" data-v="${esc(w.monday)}"`:'tabindex="-1" style="cursor:default"'}>
+    const sub=(typeof w.balance==="number"?"остаток "+eur(w.balance)+" €":"")+((w.oneoff||0)>0?" · разовые −"+eur(w.oneoff):"")+((w.income||0)>0?" · доход +"+eur(w.income):"");
+    return `<button class="row" data-act="weekops" data-v="${esc(w.monday)}">
       <div class="mid"><div class="t">${dm(t)}–${dmy(t+6*DAY)}</div><div class="s">${bl(sub)}</div></div><span class="amt num ${w.saved<0?"neg-t":""}">${signed(w.saved)}</span></button>`}).join("")
     +(all.length>6?`<button class="row" data-act="allweeks" style="color:var(--ai)"><div class="mid">${UI.showAllWeeks?"Свернуть":"Все недели ("+all.length+")"}</div></button>`:"");
 }
@@ -202,13 +203,13 @@ function kPath(ws,m){
   const c=kcfg(),W=340,H=210,L0=34,R=58,T=10,B=22,g=m.budgets[UI.budget];
   const pts=ws.filter(w=>typeof w.balance==="number").map(w=>({t:parseD(w.monday)+6*DAY,v:w.balance,w}));
   if(!pts.length){$("pathChart").innerHTML='<div class="empty">Укажи остаток хотя бы в одной неделе.</div>';return}
-  const t0=pts[0].t,t1=parseD(c.deadline),endV=m.base+m.pace*m.left,yMax=Math.max(g.KAI.goal,g.SNG.goal,endV)*1.06;
+  const t0=pts[0].t,t1=parseD(c.deadline),endV=m.base+m.pace*m.left,yMax=Math.max(...SCHOOLS().map(s=>g[s].goal),endV)*1.06;
   const X=t=>L0+(t-t0)/(t1-t0||1)*(W-L0-R),Y=v=>T+(1-v/yMax)*(H-T-B);
   let s="";
   for(const v of niceTicks(0,yMax,4))s+=`<line class="grid" x1="${L0}" x2="${W-R}" y1="${Y(v)}" y2="${Y(v)}"/><text class="axis vn" x="${L0-6}" y="${Y(v)+4}" text-anchor="end">${kfmt(v)}</text>`;
   for(let y=new Date(t0).getUTCFullYear()+1;Date.UTC(y,0,1)<=t1;y++){const t=Date.UTC(y,0,1),x=X(t);s+=`<line class="grid" x1="${x}" x2="${x}" y1="${T}" y2="${H-B}" stroke-dasharray="2 3"/>`;if(x-L0>34&&W-R-x>34)s+=`<text class="axis" x="${x}" y="${H-6}" text-anchor="middle">${y}</text>`}
   s+=`<text class="axis" x="${L0}" y="${H-6}">${dm(t0)}</text><text class="axis" x="${W-R}" y="${H-6}" text-anchor="end">${dm(t1)}</text>`;
-  const goals=[["SNG",g.SNG.goal,"var(--series-1)"],["KAI",g.KAI.goal,"var(--series-2)"]],gy=goals.map(x=>Y(x[1]));let ly=gy.slice();if(Math.abs(ly[0]-ly[1])<13){const mid=(ly[0]+ly[1])/2;ly=ly[0]>ly[1]?[mid+7,mid-7]:[mid-7,mid+7]}
+  const goals=[["SNG",g.SNG.goal,"var(--series-1)"],["KAI",g.KAI.goal,"var(--series-2)"]].filter(x=>SCHOOLS().includes(x[0])),gy=goals.map(x=>Y(x[1]));let ly=gy.slice();if(Math.abs(ly[0]-ly[1])<13){const mid=(ly[0]+ly[1])/2;ly=ly[0]>ly[1]?[mid+7,mid-7]:[mid-7,mid+7]}
   goals.forEach((x,i)=>{s+=`<line x1="${L0}" x2="${W-R}" y1="${gy[i]}" y2="${gy[i]}" stroke="${x[2]}" stroke-width="2"/><text class="lbl vn" x="${W-R+5}" y="${ly[i]+4}" fill="${x[2]}">${x[0]} ${kfmt(x[1])}</text>`});
   const line=pts.map((p,i)=>(i?"L":"M")+X(p.t).toFixed(1)+" "+Y(p.v).toFixed(1)).join(" ");
   s+=`<path d="${line} L${X(pts[pts.length-1].t).toFixed(1)} ${Y(0)} L${X(t0).toFixed(1)} ${Y(0)} Z" fill="var(--ai)" opacity=".12"/>`;
@@ -218,7 +219,7 @@ function kPath(ws,m){
   s+=`<line class="cross" y1="${T}" y2="${H-B}" stroke="var(--ink-muted)" stroke-width="1" style="display:none"/><circle class="mark" r="5" fill="var(--ai)" stroke="var(--surface-raised)" stroke-width="2" style="display:none"/>`;
   $("pathChart").innerHTML=svgEl(W,H,s);
   $("pathCap").innerHTML="Прогноз к "+dmy(t1)+": "+bl(eur(endV))+" € при темпе "+bl(eur(m.pace))+" €/нед, без новых разовых трат"+(m.oneoffs>0?" · разовые за всё время "+bl(eur(m.oneoffs))+" €":"");
-  $("pathLegend").innerHTML=`<span><i class="line" style="background:var(--ai)"></i>накоплено</span><span><i class="dash"></i>прогноз</span><span><i class="line" style="background:var(--series-1)"></i>цель SNG</span><span><i class="line" style="background:var(--series-2)"></i>цель KAI</span>`;
+  $("pathLegend").innerHTML=`<span><i class="line" style="background:var(--ai)"></i>накоплено</span><span><i class="dash"></i>прогноз</span>${SHOW_SNG?'<span><i class="line" style="background:var(--series-1)"></i>цель SNG</span>':""}<span><i class="line" style="background:var(--series-2)"></i>цель KAI</span>`;
   const tp=pts.map(p=>({x:X(p.t),y:Y(p.v),p}));tp.push({x:X(t1),y:Y(endV),fc:true});
   attachTip($("pathChart"),tp,q=>q.fc?`прогноз ${dmy(t1)}<br><b>${eur(endV)} €</b>`:`${dm(q.p.t-6*DAY)}–${dm(q.p.t)}<br><b>${eur(q.p.v)} €</b>`);
 }

@@ -125,7 +125,6 @@ document.addEventListener("click",e=>{
     case "editop":openOp(v);break;
     case "edittransfer":openTransfer(v);break;
     case "budget":UI.budget=v;render();break;
-    case "kweek":openKWeek(v||null);break;
     case "weekops":UI.opsPrev=UI.opsPrev||{...UI.ops,period:{...UI.ops.period}};UI.ops={...UI.ops,filter:"all",period:{kind:"week",anchor:v},accs:null,cat:null,q:""};UI.tab="ops";window.scrollTo(0,0);render();break;
     case "allweeks":UI.showAllWeeks=!UI.showAllWeeks;render();break;
     case "ksettings":if(PRIVATE){toast("Настройки цели сейчас недоступны");break}openKSettings();break;

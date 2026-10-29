@@ -161,7 +161,8 @@ def py_plan(d, today):
     if c["manualRate"]:
         rate = c["manualRate"]
     else:
-        ks = sorted(k for k in rates if k <= today.isoformat()) or sorted(rates)[:1]
+        last_sun = (monday(today) - DAY).isoformat()  # курс прошлого воскресенья: план меняется раз в неделю
+        ks = sorted(k for k in rates if k <= last_sun) or sorted(rates)[:1]
         if not ks:
             return None
         rate = rates[ks[-1]]
@@ -184,9 +185,8 @@ def py_plan(d, today):
                                             fc=base + pace * left - g, fcH=base + pace * left + c["holidayEur"] - g)
     return out
 
-# «В среднем» и «Чтобы идти по плану» — законченные недели, не больше 26 последних
-AVG_SKIP, AVG_ONLY = {"sport", "edu"}, {"transport": "NS"}
-
+# «В среднем» и «Чтобы идти по плану»: законченные недели (не больше 26); обязательные = пометка
+# «обязательная» у категории или тега (как в бюджете недели), остальное одной строкой, разовые отдельно
 def py_avg(d, today):
     exp = [o for o in ops_of(d) if o["type"] == "expense" and not (d["accounts"].get(o["accountId"]) or {}).get("exclude")]
     if not exp:
@@ -200,26 +200,29 @@ def py_avg(d, today):
     days = (end - start).days
     if days < 7:
         return None
-    tags = {k: (v or {}).get("name") for k, v in (d.get("tags") or {}).items()}
-    by, one, allreg, inc = {}, 0.0, 0.0, 0.0
+    by, one, other, inc = {}, 0.0, 0.0, 0.0
     for o in ops_of(d):
         day = dt.date.fromisoformat(o["date"])
         if not (start <= day < end) or (d["accounts"].get(o["accountId"]) or {}).get("exclude"):
             continue
         v = op_eur(d, o)
-        if o["type"] == "income" and not o.get("oneoff"):
-            inc += v
+        if o["type"] == "income":
+            inc += 0 if o.get("oneoff") else v
+            continue
         if o["type"] != "expense":
             continue
-        if o.get("oneoff"):
-            one += v; continue
-        allreg += v
-        k = o.get("categoryId") or "_"
-        if k in AVG_SKIP or (k in AVG_ONLY and AVG_ONLY[k] not in [tags.get(t) for t in o.get("tagIds") or []]):
-            continue
-        by[k] = by.get(k, 0) + v
-    rows = {k: v / days for k, v in by.items() if v / days * 30.4375 >= 1}
-    return {"rows": rows, "total": sum(rows.values()), "one": one / days, "allReg": allreg / days, "inc": inc / days, "days": days}
+        k = kind(d, o)
+        if k == "oneoff":
+            one += v
+        elif k in ("daily", "monthly"):
+            c = o.get("categoryId") or "_"
+            by[c] = by.get(c, 0) + v
+        else:
+            other += v
+    rows = {k: v / days for k, v in by.items()}
+    mand = sum(rows.values())
+    return {"rows": rows, "mand": mand, "other": other / days, "total": mand + other / days, "one": one / days,
+            "allReg": mand + other / days, "inc": inc / days, "days": days}
 
 # ---------------------------------------------------------------- приложение в браузере
 def serve():
@@ -252,7 +255,7 @@ def run_app(data, now=None):
             const KN=K.kNow(),m=KN.m,A=K.avgData();
             const plan=m&&{rate:KN.r.rate,base:m.base,bal:m.bal,left:m.left,win:m.win,pace:m.pace,goals:Object.fromEntries(
               ["mine","comfort"].flatMap(b=>["SNG","KAI"].map(s=>[b+"."+s,m.budgets[b][s]])))};
-            const avg=A&&{rows:Object.fromEntries(A.rows.map(r=>[r.id,r.d])),total:A.total,one:A.one,allReg:A.allReg,inc:A.inc,days:A.days};
+            const avg=A&&{rows:Object.fromEntries(A.rows.map(r=>[r.id,r.d])),mand:A.mand,other:A.other,total:A.total,one:A.one,allReg:A.allReg,inc:A.inc,days:A.days};
             return {plan,avg,weeks:K.kopWeeks().filter(w=>w.computed),acc,total:K.totalEUR(null),
               budget:B&&{weeks:B.weeks,avgInc:B.avgInc,billShare:B.billShare,arrived:B.arrived,expInc:B.expInc,need:B.need,
                 life:B.life,spent:B.spent,left:B.left,daysLeft:B.daysLeft,cur:B.cur}}}""")
@@ -317,7 +320,7 @@ def compare(R, data, app, today):
     if (pa is None) != (aa is None):
         R.fail(f"средние: приложение {aa!r}, пересчёт {pa!r}")
     elif pa:
-        for k in ("total", "one", "allReg", "inc", "days"):
+        for k in ("mand", "other", "total", "one", "allReg", "inc", "days"):
             R.eq(f"средние {k}", aa[k], pa[k], eps=0.0001)
         if set(aa["rows"]) != set(pa["rows"]):
             R.fail(f"средние: категории {sorted(aa['rows'])} ≠ {sorted(pa['rows'])}")

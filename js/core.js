@@ -5,6 +5,10 @@
 /* ================= constants ================= */
 const DAY=864e5, KEY="finance.v1", AKEY="kopilka.auth", DEFAULT_REPO="GREGORUNDEL/kopilka-data", DATA_PATH="finance.json";
 const KDEF={deadline:"2028-03-12",months:24,mine:210000,comfort:180000,SNG:1840000,KAI:2270000,extraEur:3000,tutorEur:1000,holidayEur:2600,window:13,extraPayouts:1,manualRate:null};
+/* SNG stays in the model (goal, norm, forecast are still computed); it is only hidden from the screens.
+   Set SHOW_SNG=true to show it again everywhere. */
+const SHOW_SNG=false;
+const SCHOOLS=()=>SHOW_SNG?["SNG","KAI"]:["KAI"];
 const CUR_SYM={EUR:"€",UAH:"₴",USD:"$",JPY:"¥",GBP:"£",PLN:"zł",CZK:"Kč",CHF:"Fr"};
 const CURRENCIES=["EUR","UAH","USD","JPY","GBP","PLN","CZK","CHF"];
 const PALETTE=["#E04B4B","#C8442E","#DE7330","#E8873A","#D9A62E","#C9B21F","#8DB33A","#6FA84E",
@@ -171,13 +175,9 @@ function weekLedger(mondayMs,accIds){
     if(o.oneoff){const nm=o.comment||(category(o.categoryId)||{}).name;if(nm&&!notes.includes(nm))notes.push(nm)}}
   return{inc,exp,saved:inc-exp,oneoff:ox,income:oi,n,note:notes.join(", ")};
 }
+/* every week from settings.ledgerStart up to the current one, computed from operations */
 function kopWeeks(){
   const ls=ledgerStart();const out=[];
-  for(const w of live(D.kopilka&&D.kopilka.weeks||{})){if(typeof w.monday!=="string"||typeof w.saved!=="number")continue;if(w.monday>=ls)continue;out.push({...w,legacy:true})}
-  out.sort((a,b)=>a.monday<b.monday?-1:1);
-  // fill legacy balances
-  for(let i=out.length-1;i>=0;i--){if(typeof out[i].balance==="number")continue;if(i<out.length-1&&typeof out[i+1].balance==="number")out[i].balance=out[i+1].balance-out[i+1].saved}
-  for(let i=0;i<out.length;i++){if(typeof out[i].balance!=="number"&&i>0&&typeof out[i-1].balance==="number")out[i].balance=out[i-1].balance+out[i].saved}
   const curMon=mondayOf(todayMs());
   for(let m=mondayOf(parseD(ls));m<=curMon;m+=7*DAY){const L=weekLedger(m);
     out.push({monday:iso(m),saved:r2(L.saved),oneoff:r2(L.oneoff),income:r2(L.income),balance:r2(totalEUR(null,m+6*DAY)),computed:true,inc:L.inc,exp:L.exp,n:L.n,...(L.note?{note:L.note}:{})})}
@@ -210,7 +210,9 @@ function kMetrics(ws,rate,c){
     out.budgets[b][s]={goal:g,progress:bal/g,need:left?(g-base)/left:0,fc:base+pace*left-g,fcH:base+pace*left+c.holidayEur-g}}}
   return out;
 }
-function kNow(){const ws=kopWeeks(),r=jpyRate();return{ws,r,m:r?kMetrics(ws,r.rate,kcfg()):null}}
+/* the yen rate for the plan is the one of last Sunday, so goals and the weekly norm change once a week, like everything else */
+function planRate(){const c=kcfg();if(typeof c.manualRate==="number"&&c.manualRate>0)return{rate:c.manualRate,date:null,manual:true};const r=rateAt(iso(mondayOf(todayMs())-DAY));return r?{...r,manual:false}:null}
+function kNow(){const ws=kopWeeks(),r=planRate();return{ws,r,m:r?kMetrics(ws,r.rate,kcfg()):null}}
 function weekStatus(mondayIso){
   const K=kNow();if(!K.m)return null;
   const need=K.m.budgets[UI.budget].KAI.need;const w=K.ws.find(x=>x.monday===mondayIso);
