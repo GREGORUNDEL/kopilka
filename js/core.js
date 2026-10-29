@@ -234,15 +234,16 @@ function opKind(o){
    series costs its average payment per month. Series with no payment in the last 45 days of the window are
    considered stopped. Returns € per month, in total and by category. */
 const MONTH_DAYS=30.4375,BILL_ACTIVE_DAYS=45;
-// series key: the monthly-marked tag (Аренда, NS), else any tag (Claude, Связь…), else category + comment
-function billKey(o){const tgs=(o.tagIds||[]).map(t=>D.tags[t]).filter(Boolean);const m=tgs.find(t=>t.fixed==="monthly")||tgs[0];
-  return m?"t:"+m.name:"c:"+(o.categoryId||"_")+":"+(o.comment||"")}
+// series key: the monthly-marked tag (Аренда, NS), else any tag (Claude, Связь…), else category + comment.
+// A bill that isn't paid every calendar month carries billDays on its tag or category (Kyivstar: every 28 days).
+function billSeries(o){const tgs=(o.tagIds||[]).map(t=>D.tags[t]).filter(Boolean);const m=tgs.find(t=>t.fixed==="monthly")||tgs[0];const c=category(o.categoryId);
+  return{key:m?"t:"+m.name:"c:"+(o.categoryId||"_")+":"+(o.comment||""),days:(m&&m.billDays>0?m.billDays:0)||(!m&&c&&c.billDays>0?c.billDays:0)||MONTH_DAYS}}
 function monthlyBills(start,end){
   const S={};
   for(const o of opsList()){if(o.type!=="expense"||opKind(o)!=="monthly"||(account(o.accountId)||{}).exclude)continue;const t=parseD(o.date);if(t<start||t>=end)continue;
-    const k=billKey(o),s=S[k]=S[k]||{sum:0,n:0,last:0,cat:o.categoryId||"_"};s.sum+=opEUR(o);s.n++;if(t>s.last)s.last=t}
+    const b=billSeries(o),s=S[b.key]=S[b.key]||{sum:0,n:0,last:0,days:b.days,cat:o.categoryId||"_"};s.sum+=opEUR(o);s.n++;if(t>s.last)s.last=t}
   let total=0;const byCat={};
-  for(const s of Object.values(S)){if(s.last<end-BILL_ACTIVE_DAYS*DAY)continue;const m=s.sum/s.n;total+=m;byCat[s.cat]=(byCat[s.cat]||0)+m}
+  for(const s of Object.values(S)){if(s.last<end-Math.max(BILL_ACTIVE_DAYS,s.days*1.5)*DAY)continue;const m=s.sum/s.n*MONTH_DAYS/s.days;total+=m;byCat[s.cat]=(byCat[s.cat]||0)+m}
   return{total,byCat};
 }
 function weekBudget(){

@@ -134,13 +134,15 @@ def py_bills(d, start, end):
         tg = [tags[t] for t in o.get("tagIds") or [] if tags.get(t)]
         m = next((t for t in tg if t.get("fixed") == "monthly"), tg[0] if tg else None)
         key = ("t", m["name"]) if m else ("c", o.get("categoryId") or "_", o.get("comment") or "")
-        s = series.setdefault(key, {"amounts": [], "last": day, "cat": o.get("categoryId") or "_"})
+        cat = (d.get("categories") or {}).get(o.get("categoryId")) or {}
+        period = (m or {}).get("billDays") or (cat.get("billDays") if not m else None) or 30.4375  # Kyivstar: раз в 28 дней
+        s = series.setdefault(key, {"amounts": [], "last": day, "cat": o.get("categoryId") or "_", "days": period})
         s["amounts"].append(op_eur(d, o)); s["last"] = max(s["last"], day)
     by = {}
     for s in series.values():
-        if s["last"] < end - 45 * DAY:
+        if s["last"] < end - dt.timedelta(days=max(45, s["days"] * 1.5)):
             continue
-        by[s["cat"]] = by.get(s["cat"], 0) + sum(s["amounts"]) / len(s["amounts"])
+        by[s["cat"]] = by.get(s["cat"], 0) + sum(s["amounts"]) / len(s["amounts"]) * 30.4375 / s["days"]
     return sum(by.values()), by
 
 def py_budget(d, today):
