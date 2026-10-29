@@ -230,11 +230,13 @@ function opKind(o){
 }
 /* Monthly bills (rent, NS, subscriptions — anything opKind calls "monthly") are paid once a month on their own
    day, so spreading them over a window of days or weeks miscounts them (a window of 2.3 months may hold two rents
-   or three NS payments). Instead each bill is a series — its monthly-marked tag, else category + comment — and a
+   or three NS payments). Instead each bill is a series (see billKey) and a
    series costs its average payment per month. Series with no payment in the last 45 days of the window are
    considered stopped. Returns € per month, in total and by category. */
 const MONTH_DAYS=30.4375,BILL_ACTIVE_DAYS=45;
-function billKey(o){for(const t of o.tagIds||[]){const tg=D.tags[t];if(tg&&tg.fixed==="monthly")return "t:"+tg.name}return "c:"+(o.categoryId||"_")+":"+(o.comment||"")}
+// series key: the monthly-marked tag (Аренда, NS), else any tag (Claude, Связь…), else category + comment
+function billKey(o){const tgs=(o.tagIds||[]).map(t=>D.tags[t]).filter(Boolean);const m=tgs.find(t=>t.fixed==="monthly")||tgs[0];
+  return m?"t:"+m.name:"c:"+(o.categoryId||"_")+":"+(o.comment||"")}
 function monthlyBills(start,end){
   const S={};
   for(const o of opsList()){if(o.type!=="expense"||opKind(o)!=="monthly"||(account(o.accountId)||{}).exclude)continue;const t=parseD(o.date);if(t<start||t>=end)continue;

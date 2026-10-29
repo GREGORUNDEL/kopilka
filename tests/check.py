@@ -121,7 +121,7 @@ def kind(d, o):
     return "free"
 
 def py_bills(d, start, end):
-    """Ежемесячные счета: серия = тег с пометкой «monthly», иначе категория + комментарий;
+    """Ежемесячные счета: серия = тег с пометкой «monthly», иначе любой тег, иначе категория + комментарий;
     серия стоит средний платёж в месяц; серия без платежа за последние 45 дней окна — закончилась."""
     tags = d.get("tags") or {}
     series = {}
@@ -131,8 +131,9 @@ def py_bills(d, start, end):
         day = dt.date.fromisoformat(o["date"])
         if not (start <= day < end):
             continue
-        key = next((("t", tags[t]["name"]) for t in o.get("tagIds") or [] if (tags.get(t) or {}).get("fixed") == "monthly"),
-                   ("c", o.get("categoryId") or "_", o.get("comment") or ""))
+        tg = [tags[t] for t in o.get("tagIds") or [] if tags.get(t)]
+        m = next((t for t in tg if t.get("fixed") == "monthly"), tg[0] if tg else None)
+        key = ("t", m["name"]) if m else ("c", o.get("categoryId") or "_", o.get("comment") or "")
         s = series.setdefault(key, {"amounts": [], "last": day, "cat": o.get("categoryId") or "_"})
         s["amounts"].append(op_eur(d, o)); s["last"] = max(s["last"], day)
     by = {}
