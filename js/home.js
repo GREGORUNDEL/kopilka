@@ -92,20 +92,20 @@ const eyeBtn=()=>`<button class="icon-btn" data-act="hidebal" aria-label="${UI.h
 /* «В среднем»: regular spending per category (one-offs apart) from the first full week of records up to
    yesterday, as an average per day scaled to a day / week / month / year. Opens on «Месяц» every time. */
 /* what counts as everyday life here: no sport or education, and transport is only the NS train */
-const AVG_SKIP=["sport","edu"],AVG_ONLY_TAG={transport:"NS"},AVG_WINDOW=183;
+const AVG_SKIP=["sport","edu"],AVG_ONLY_TAG={transport:"NS"},AVG_WINDOW=26*7;
 const AVG_SCALES=[["day","День",1],["week","Неделя",7],["month","Месяц",30.4375],["year","Год",365.25]];
 function avgData(){
   const today=todayMs(),ops=opsList().filter(o=>o.type==="expense"&&!(account(o.accountId)||{}).exclude);
   if(!ops.length)return null;
-  // window: from the first full week of records (or settings.avgFrom, e.g. the move to Japan) up to yesterday,
+  // window: from the first full week of records (or settings.avgFrom, e.g. the move to Japan) to the end of last week,
   // but never longer than the last ~6 months, so old habits fade out of the averages
   const first=parseD(ops.reduce((m,o)=>o.date<m?o.date:m,"9999"));let start=mondayOf(first);if(first>start)start+=7*DAY;
-  const from=settings().avgFrom;if(from)start=Math.max(start,parseD(from));
-  const cap=today-AVG_WINDOW*DAY,capped=start<cap;if(capped)start=cap;
-  const days=Math.round((today-start)/DAY);if(days<7)return null;
+  const from=settings().avgFrom;if(from){let f=mondayOf(parseD(from));if(f<parseD(from))f+=7*DAY;start=Math.max(start,f)}
+  const end=mondayOf(today),cap=end-AVG_WINDOW*DAY,capped=start<cap;if(capped)start=cap; // finished weeks only
+  const days=Math.round((end-start)/DAY);if(days<7)return null;
   const by={};let one=0,allReg=0,inc=0;
-  for(const o of opsList()){if(o.type!=="income"||o.oneoff||(account(o.accountId)||{}).exclude)continue;const t=parseD(o.date);if(t>=start&&t<today)inc+=opEUR(o)}
-  for(const o of ops){const t=parseD(o.date);if(t<start||t>=today)continue;const v=opEUR(o);
+  for(const o of opsList()){if(o.type!=="income"||o.oneoff||(account(o.accountId)||{}).exclude)continue;const t=parseD(o.date);if(t>=start&&t<end)inc+=opEUR(o)}
+  for(const o of ops){const t=parseD(o.date);if(t<start||t>=end)continue;const v=opEUR(o);
     if(o.oneoff){one+=v;continue}allReg+=v;const k=o.categoryId||"_";if(AVG_SKIP.includes(k))continue;
     const only=AVG_ONLY_TAG[k];if(only&&!(o.tagIds||[]).some(t=>(D.tags[t]||{}).name===only))continue;
     by[k]=(by[k]||0)+v}

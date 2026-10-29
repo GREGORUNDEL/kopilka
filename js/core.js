@@ -186,17 +186,28 @@ function kopWeeks(){
 function rateAt(dateIso){const keys=Object.keys(D.rates||{}).sort();let best=null;for(const k of keys){if(k<=dateIso)best=k;else break}if(!best&&keys.length)best=keys[0];return best?{date:best,rate:D.rates[best]}:null}
 function jpyRate(){const c=kcfg();if(typeof c.manualRate==="number"&&c.manualRate>0)return{rate:c.manualRate,date:null,manual:true};const r=rateAt(todayIso());return r?{...r,manual:false}:null}
 const goal=(budgetYen,schoolYen,rate,c)=>(budgetYen*c.months+schoolYen)/rate+c.extraEur+(c.tutorEur||0); // tutorEur: private teacher, same for every goal
+/* Savings model. Only finished weeks drive the plan, so nothing jumps around during the week:
+   - pace  = average saved per finished week, one-offs set apart (last c.window weeks);
+   - base  = savings at the end of the last finished week; the current week starts from it;
+   - left  = weeks from the start of the current week to the deadline, plus the extra payouts;
+   - need  = (goal − base) / left — the weekly norm, fixed for the whole current week;
+   - fc    = base + pace × left − goal (what you'd have on the deadline at this pace, without new one-offs).
+   bal (shown as «накоплено» and the progress bar) is the live balance, current week included. */
 function kMetrics(ws,rate,c){
   if(!ws.length||!rate)return null;
-  const last=ws[ws.length-1],lastSun=parseD(last.monday)+6*DAY;
-  const left=Math.max(0,Math.round((parseD(c.deadline)-lastSun)/(7*DAY)))+c.extraPayouts;
-  const win=Math.min(c.window,ws.length),recent=ws.slice(-win);
-  const pace=recent.reduce((a,w)=>a+reg(w),0)/win,all=ws.reduce((a,w)=>a+reg(w),0)/ws.length;
+  const curMon=iso(mondayOf(todayMs()));
+  let done=ws.filter(w=>w.monday<curMon);if(!done.length)done=ws.slice(0,1);
+  const lastDone=done[done.length-1],cur=ws.find(w=>w.monday===curMon);
+  const base=typeof lastDone.balance==="number"?lastDone.balance:0;
+  const bal=cur&&typeof cur.balance==="number"?cur.balance:base;
+  const refMon=parseD(lastDone.monday)+7*DAY;
+  const left=Math.max(0,Math.round((parseD(c.deadline)+DAY-refMon)/(7*DAY)))+c.extraPayouts;
+  const win=Math.min(c.window,done.length),recent=done.slice(-win);
+  const pace=recent.reduce((a,w)=>a+reg(w),0)/win,all=done.reduce((a,w)=>a+reg(w),0)/done.length;
   const netPace=recent.reduce((a,w)=>a+w.saved,0)/win,oneoffs=ws.reduce((a,w)=>a+(w.oneoff||0),0);
-  const bal=typeof last.balance==="number"?last.balance:0;
-  const out={bal,left,pace,all,netPace,oneoffs,win,n:ws.length,lastMonday:last.monday,budgets:{}};
+  const out={bal,base,left,pace,all,netPace,oneoffs,win,n:done.length,lastMonday:lastDone.monday,budgets:{}};
   for(const b of ["mine","comfort"]){out.budgets[b]={};for(const s of ["SNG","KAI"]){const g=goal(c[b],c[s],rate,c);
-    out.budgets[b][s]={goal:g,progress:bal/g,need:left?(g-bal)/left:0,fc:bal+pace*left-g,fcH:bal+pace*left+c.holidayEur-g}}}
+    out.budgets[b][s]={goal:g,progress:bal/g,need:left?(g-base)/left:0,fc:base+pace*left-g,fcH:base+pace*left+c.holidayEur-g}}}
   return out;
 }
 function kNow(){const ws=kopWeeks(),r=jpyRate();return{ws,r,m:r?kMetrics(ws,r.rate,kcfg()):null}}

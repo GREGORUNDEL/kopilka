@@ -143,7 +143,7 @@ function renderKopilka(){
     <div class="chart hs" id="barsChart"></div><div class="legend" id="barsLegend"></div><p class="note" style="text-align:center">Листай график вбок. Нажми на столбец, чтобы увидеть суммы.</p></section>`;
   h+=`<section class="card chart-card" id="kRateC"><h2>Курс иены</h2><div class="cap" id="rateCap">¥ за 1 €, последние 90 дней</div><div class="chart" id="rateChart"></div>
     <div class="note">Выше курс — дешевле цель. Каждые 5 ¥ меняют цель KAI примерно на ${eur(Math.abs(goal(c[UI.budget],c.KAI,cr.rate-5,c)-goal(c[UI.budget],c.KAI,cr.rate,c)))} €.</div></section>`;
-  h+=`</div></div><p class="note" style="text-align:center;margin:0 16px">Прогноз = накоплено + темп × ${m.left} нед (${m.left-c.extraPayouts} + ${c.extraPayouts} выплата) · отпускные ${eur(c.holidayEur)} € · недели с ${dmy(parseD(ledgerStart()))} считаются из операций</p></main>`;
+  h+=`</div></div><p class="note" style="text-align:center;margin:0 16px">Прогноз = накоплено к началу этой недели + темп законченных недель × ${m.left} нед (${m.left-c.extraPayouts} + ${c.extraPayouts} выплата) · отпускные ${eur(c.holidayEur)} € · недели с ${dmy(parseD(ledgerStart()))} считаются из операций</p></main>`;
   after(()=>{kPath(ws,m);kRate();drawJapanBars(true)});
   return h;
 }
@@ -152,15 +152,18 @@ function drawJapanBars(first){
   if(S.sel!=null&&S.sel>=bs.length)S.sel=UI.ch.sel=null;
   drawChart(bs,S,{box:$("barsChart"),legend:$("barsLegend"),pop:true,first,onPick:i=>{UI.ch.sel=UI.ch.sel===i?null:i;drawJapanBars(false)}});
 }
+/* the last finished week against the plan it started with, and how the outlook moved because of it */
 function kChanges(ws,m,cr){
-  if(ws.length<2)return'<div class="empty">Появится после второй недели.</div>';
-  const c=kcfg(),prevW=ws.slice(0,-1),pr=cr.manual?cr:rateAt(iso(parseD(prevW[prevW.length-1].monday)+6*DAY));
-  const pm=kMetrics(prevW,pr?pr.rate:cr.rate,c),cur=m.budgets[UI.budget],old=pm.budgets[UI.budget],last=ws[ws.length-1];
+  const curMon=iso(mondayOf(todayMs())),done=ws.filter(w=>w.monday<curMon);
+  if(done.length<2)return'<div class="empty">Появится после второй законченной недели.</div>';
+  const c=kcfg(),prevW=done.slice(0,-1),pr=cr.manual?cr:rateAt(iso(parseD(prevW[prevW.length-1].monday)+6*DAY));
+  const pm=kMetrics(prevW,pr?pr.rate:cr.rate,c),cur=m.budgets[UI.budget],old=pm.budgets[UI.budget],last=done[done.length-1];
   const row=(k,v,cls)=>`<div class="r"><span class="k">${k}</span><span class="v num ${cls||""}">${bl(v)}</span></div>`;
   const d=(x,y)=>({t:signed(x-y),c:x-y>=0?"pos-t":"neg-t"});
   const dp=d(m.pace,pm.pace),dS=d(cur.SNG.fc,old.SNG.fc),dK=d(cur.KAI.fc,old.KAI.fc),gd=cur.KAI.goal-old.KAI.goal,lr=reg(last);
-  let h=row("Неделя",signed(last.saved)+" € · норма KAI "+eur(cur.KAI.need),hasX(last)?"":(last.saved>=cur.KAI.need?"pos-t":"neg-t"));
-  if(hasX(last))h+=row("Без разовых"+(last.note?"<small>"+esc(last.note)+"</small>":""),signed(lr)+" €",lr>=cur.KAI.need?"pos-t":"neg-t");
+  const nd=old.KAI.need;
+  let h=row("Неделя "+dm(parseD(last.monday))+"–"+dm(parseD(last.monday)+6*DAY),signed(last.saved)+" € · норма KAI "+eur(nd),hasX(last)?"":(last.saved>=nd?"pos-t":"neg-t"));
+  if(hasX(last))h+=row("Без разовых"+(last.note?"<small>"+esc(last.note)+"</small>":""),signed(lr)+" €",lr>=nd?"pos-t":"neg-t");
   h+=row("Темп",eur(pm.pace)+" → "+eur(m.pace)+" ("+dp.t+")",dp.c);
   h+=row("Прогноз SNG",signed(old.SNG.fc)+" → "+signed(cur.SNG.fc),dS.c);
   h+=row("Прогноз KAI",signed(old.KAI.fc)+" → "+signed(cur.KAI.fc),dK.c);
@@ -199,7 +202,7 @@ function kPath(ws,m){
   const c=kcfg(),W=340,H=210,L0=34,R=58,T=10,B=22,g=m.budgets[UI.budget];
   const pts=ws.filter(w=>typeof w.balance==="number").map(w=>({t:parseD(w.monday)+6*DAY,v:w.balance,w}));
   if(!pts.length){$("pathChart").innerHTML='<div class="empty">Укажи остаток хотя бы в одной неделе.</div>';return}
-  const t0=pts[0].t,t1=parseD(c.deadline),endV=m.bal+m.pace*m.left,yMax=Math.max(g.KAI.goal,g.SNG.goal,endV)*1.06;
+  const t0=pts[0].t,t1=parseD(c.deadline),endV=m.base+m.pace*m.left,yMax=Math.max(g.KAI.goal,g.SNG.goal,endV)*1.06;
   const X=t=>L0+(t-t0)/(t1-t0||1)*(W-L0-R),Y=v=>T+(1-v/yMax)*(H-T-B);
   let s="";
   for(const v of niceTicks(0,yMax,4))s+=`<line class="grid" x1="${L0}" x2="${W-R}" y1="${Y(v)}" y2="${Y(v)}"/><text class="axis vn" x="${L0-6}" y="${Y(v)+4}" text-anchor="end">${kfmt(v)}</text>`;

@@ -149,6 +149,78 @@ def py_budget(d, today):
     return {"weeks": weeks, "avgInc": avg, "billShare": bills, "arrived": arrived,
             "expInc": cur["inc"] if arrived else avg, "cur": cur}
 
+# Копилка: цели, темп, норма, прогноз — по законченным неделям (см. kMetrics в js/core.js)
+KDEF = dict(deadline="2028-03-12", months=24, mine=210000, comfort=180000, SNG=1840000, KAI=2270000,
+            extraEur=3000, tutorEur=1000, holidayEur=2600, window=13, extraPayouts=1, manualRate=None)
+
+def py_plan(d, today):
+    if any(w for w in live((d.get("kopilka") or {}).get("weeks")) if w.get("monday", "9") < ledger_start(d).isoformat()):
+        return None  # ручные недели до начала учёта здесь не моделируются
+    c = {**KDEF, **((d.get("kopilka") or {}).get("config") or {})}
+    rates = d.get("rates") or {}
+    if c["manualRate"]:
+        rate = c["manualRate"]
+    else:
+        ks = sorted(k for k in rates if k <= today.isoformat()) or sorted(rates)[:1]
+        if not ks:
+            return None
+        rate = rates[ks[-1]]
+    ws = py_weeks(d, today)
+    cur_mon = monday(today)
+    done = [w for w in ws if dt.date.fromisoformat(w["monday"]) < cur_mon] or ws[:1]
+    cur = next((w for w in ws if dt.date.fromisoformat(w["monday"]) == cur_mon), None)
+    base = round(done[-1]["balance"], 2)
+    bal = round(cur["balance"], 2) if cur else base
+    ref = dt.date.fromisoformat(done[-1]["monday"]) + 7 * DAY
+    left = max(0, round((dt.date.fromisoformat(c["deadline"]) + DAY - ref).days / 7)) + c["extraPayouts"]
+    win = min(c["window"], len(done))
+    reg = lambda w: round(w["saved"], 2) + round(w["oneoff"], 2) - round(w["income"], 2)
+    pace = sum(reg(w) for w in done[-win:]) / win
+    out = {"rate": rate, "base": base, "bal": bal, "left": left, "win": win, "pace": pace, "goals": {}}
+    for b in ("mine", "comfort"):
+        for s in ("SNG", "KAI"):
+            g = (c[b] * c["months"] + c[s]) / rate + c["extraEur"] + (c.get("tutorEur") or 0)
+            out["goals"][f"{b}.{s}"] = dict(goal=g, progress=bal / g, need=(g - base) / left if left else 0,
+                                            fc=base + pace * left - g, fcH=base + pace * left + c["holidayEur"] - g)
+    return out
+
+# «В среднем» и «Чтобы идти по плану» — законченные недели, не больше 26 последних
+AVG_SKIP, AVG_ONLY = {"sport", "edu"}, {"transport": "NS"}
+
+def py_avg(d, today):
+    exp = [o for o in ops_of(d) if o["type"] == "expense" and not (d["accounts"].get(o["accountId"]) or {}).get("exclude")]
+    if not exp:
+        return None
+    first = dt.date.fromisoformat(min(o["date"] for o in exp))
+    start = monday(first) + (7 * DAY if first != monday(first) else dt.timedelta(0))
+    frm = (d.get("settings") or {}).get("avgFrom")
+    if frm:
+        f = dt.date.fromisoformat(frm); fm = monday(f) + (7 * DAY if f != monday(f) else dt.timedelta(0)); start = max(start, fm)
+    end = monday(today); start = max(start, end - 26 * 7 * DAY)
+    days = (end - start).days
+    if days < 7:
+        return None
+    tags = {k: (v or {}).get("name") for k, v in (d.get("tags") or {}).items()}
+    by, one, allreg, inc = {}, 0.0, 0.0, 0.0
+    for o in ops_of(d):
+        day = dt.date.fromisoformat(o["date"])
+        if not (start <= day < end) or (d["accounts"].get(o["accountId"]) or {}).get("exclude"):
+            continue
+        v = op_eur(d, o)
+        if o["type"] == "income" and not o.get("oneoff"):
+            inc += v
+        if o["type"] != "expense":
+            continue
+        if o.get("oneoff"):
+            one += v; continue
+        allreg += v
+        k = o.get("categoryId") or "_"
+        if k in AVG_SKIP or (k in AVG_ONLY and AVG_ONLY[k] not in [tags.get(t) for t in o.get("tagIds") or []]):
+            continue
+        by[k] = by.get(k, 0) + v
+    rows = {k: v / days for k, v in by.items() if v / days * 30.4375 >= 1}
+    return {"rows": rows, "total": sum(rows.values()), "one": one / days, "allReg": allreg / days, "inc": inc / days, "days": days}
+
 # ---------------------------------------------------------------- приложение в браузере
 def serve():
     class Quiet(http.server.SimpleHTTPRequestHandler):
@@ -177,7 +249,11 @@ def run_app(data, now=None):
         pg.wait_for_function("window.__K")
         res = pg.evaluate("""()=>{const K=window.__K,D=K.D(),B=K.weekBudget();
             const acc=Object.values(D.accounts).filter(a=>a&&!a.deleted).map(a=>({id:a.id,bal:K.accBalance(a.id)}));
-            return {weeks:K.kopWeeks().filter(w=>w.computed),acc,total:K.totalEUR(null),
+            const KN=K.kNow(),m=KN.m,A=K.avgData();
+            const plan=m&&{rate:KN.r.rate,base:m.base,bal:m.bal,left:m.left,win:m.win,pace:m.pace,goals:Object.fromEntries(
+              ["mine","comfort"].flatMap(b=>["SNG","KAI"].map(s=>[b+"."+s,m.budgets[b][s]])))};
+            const avg=A&&{rows:Object.fromEntries(A.rows.map(r=>[r.id,r.d])),total:A.total,one:A.one,allReg:A.allReg,inc:A.inc,days:A.days};
+            return {plan,avg,weeks:K.kopWeeks().filter(w=>w.computed),acc,total:K.totalEUR(null),
               budget:B&&{weeks:B.weeks,avgInc:B.avgInc,billShare:B.billShare,arrived:B.arrived,expInc:B.expInc,need:B.need,
                 life:B.life,spent:B.spent,left:B.left,daysLeft:B.daysLeft,cur:B.cur}}}""")
         for tab in ("ops", "kopilka", "accounts", "overview"):  # каждый экран открывается без ошибок
@@ -227,6 +303,26 @@ def compare(R, data, app, today):
         R.eq("бюджет: осталось = на жизнь − потрачено", ab["left"], ab["life"] - ab["spent"])
         if not 1 <= ab["daysLeft"] <= 7:
             R.fail(f"бюджет: дней до конца недели {ab['daysLeft']}")
+        pp = py_plan(data, today)
+        if pp:
+            R.eq("бюджет: норма недели = норма KAI (мой бюджет)", ab["need"], pp["goals"]["mine.KAI"]["need"], eps=0.01)
+    pp, ap = py_plan(data, today), app.get("plan")
+    if pp and ap:
+        for k in ("rate", "base", "bal", "left", "win", "pace"):
+            R.eq(f"копилка {k}", ap[k], pp[k], eps=0.01)
+        for g, v in pp["goals"].items():
+            for k in ("goal", "progress", "need", "fc", "fcH"):
+                R.eq(f"копилка {g} {k}", ap["goals"][g][k], v[k], eps=0.0001 if k == "progress" else 0.02)
+    pa, aa = py_avg(data, today), app.get("avg")
+    if (pa is None) != (aa is None):
+        R.fail(f"средние: приложение {aa!r}, пересчёт {pa!r}")
+    elif pa:
+        for k in ("total", "one", "allReg", "inc", "days"):
+            R.eq(f"средние {k}", aa[k], pa[k], eps=0.0001)
+        if set(aa["rows"]) != set(pa["rows"]):
+            R.fail(f"средние: категории {sorted(aa['rows'])} ≠ {sorted(pa['rows'])}")
+        for k in set(aa["rows"]) & set(pa["rows"]):
+            R.eq(f"средние {k}", aa["rows"][k], pa["rows"][k], eps=0.0001)
 
 def compare_kop(R, data, app, kop_path):
     """Те же недели через week_summary() из tools/kop.py."""

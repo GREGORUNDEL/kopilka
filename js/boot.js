@@ -169,4 +169,4 @@ window.addEventListener("online",()=>{fetchRates(false);sync()});
 window.addEventListener("offline",()=>setStatus(getAuth()?"offline":"local"));
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"){fetchRates(false);sync();if(UI.ov.period.kind!=="custom"&&!stack.length)render()}});
 if("serviceWorker" in navigator)window.addEventListener("load",()=>{navigator.serviceWorker.register("sw.js").then(r=>{if(navigator.onLine)r.update()}).catch(()=>{})});
-window.__K={D:()=>D,kopWeeks,kNow,weekLedger,weekBudget,accBalance,totalEUR,opEUR,ledgerStart,merge,docOf,render:()=>render()};
+window.__K={D:()=>D,kopWeeks,kNow,weekLedger,weekBudget,avgData,accBalance,totalEUR,opEUR,ledgerStart,merge,docOf,render:()=>render()};
