@@ -109,9 +109,12 @@ function avgData(){
     if(o.oneoff){one+=v;continue}
     const k=o.categoryId||"_";
     if(!isMandatory(o)){other+=v;otherBy[k]=(otherBy[k]||0)+v;continue}
-    by[k]=(by[k]||0)+v;
+    if(opKind(o)!=="monthly")by[k]=(by[k]||0)+v; // monthly bills are added per series below
     const c=category(k);if(!(c&&c.fixed)){(tagsBy[k]=tagsBy[k]||new Set);for(const x of o.tagIds||[]){const tg=D.tags[x];if(tg&&tg.fixed)tagsBy[k].add(tg.name)}}}
-  const rows=Object.entries(by).map(([id,v])=>({id,d:v/days,tags:tagsBy[id]?[...tagsBy[id]]:[],c:category(id)||{name:"Без категории",color:"#8E8E93",icon:"help-circle"}})).sort((a,b)=>b.d-a.d);
+  const MB=monthlyBills(start,end),perDay={};
+  for(const [k,v] of Object.entries(by))perDay[k]=v/days;
+  for(const [k,m] of Object.entries(MB.byCat))perDay[k]=(perDay[k]||0)+m/MONTH_DAYS;
+  const rows=Object.entries(perDay).filter(([,d])=>d>0).map(([id,d])=>({id,d,tags:tagsBy[id]?[...tagsBy[id]]:[],c:category(id)||{name:"Без категории",color:"#8E8E93",icon:"help-circle"}})).sort((a,b)=>b.d-a.d);
   const otherTop=Object.entries(otherBy).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([id])=>(category(id)||{name:"без категории"}).name.toLowerCase());
   const mand=rows.reduce((a,r)=>a+r.d,0);
   return{rows,mand,other:other/days,otherTop,total:mand+other/days,one:one/days,allReg:mand+other/days,inc:inc/days,days,capped}

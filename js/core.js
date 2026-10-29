@@ -228,21 +228,36 @@ function opKind(o){
   if(c&&c.fixed==="monthly")return "monthly";if(c&&c.fixed==="daily")k=k||"daily";
   return k||"free";
 }
+/* Monthly bills (rent, NS, subscriptions — anything opKind calls "monthly") are paid once a month on their own
+   day, so spreading them over a window of days or weeks miscounts them (a window of 2.3 months may hold two rents
+   or three NS payments). Instead each bill is a series — its monthly-marked tag, else category + comment — and a
+   series costs its average payment per month. Series with no payment in the last 45 days of the window are
+   considered stopped. Returns € per month, in total and by category. */
+const MONTH_DAYS=30.4375,BILL_ACTIVE_DAYS=45;
+function billKey(o){for(const t of o.tagIds||[]){const tg=D.tags[t];if(tg&&tg.fixed==="monthly")return "t:"+tg.name}return "c:"+(o.categoryId||"_")+":"+(o.comment||"")}
+function monthlyBills(start,end){
+  const S={};
+  for(const o of opsList()){if(o.type!=="expense"||opKind(o)!=="monthly"||(account(o.accountId)||{}).exclude)continue;const t=parseD(o.date);if(t<start||t>=end)continue;
+    const k=billKey(o),s=S[k]=S[k]||{sum:0,n:0,last:0,cat:o.categoryId||"_"};s.sum+=opEUR(o);s.n++;if(t>s.last)s.last=t}
+  let total=0;const byCat={};
+  for(const s of Object.values(S)){if(s.last<end-BILL_ACTIVE_DAYS*DAY)continue;const m=s.sum/s.n;total+=m;byCat[s.cat]=(byCat[s.cat]||0)+m}
+  return{total,byCat};
+}
 function weekBudget(){
   const today=todayMs(),mon=mondayOf(today),end=mon+7*DAY;
   const ops=opsList().filter(o=>(o.type==="income"||o.type==="expense")&&!(account(o.accountId)||{}).exclude);
   const first=ops.reduce((m,o)=>o.date<m?o.date:m,"9999");if(first==="9999")return null;
   const f=parseD(first);let hs=mondayOf(f);if(f>hs)hs+=7*DAY;hs=Math.max(hs,mon-13*7*DAY);
   const weeks=Math.max(0,Math.round((mon-hs)/(7*DAY)));
-  let hInc=0,hBills=0;const cur={inc:0,incOne:0,daily:0,free:0,monthly:0,oneoff:0,bills:[],ones:[]};
+  let hInc=0;const cur={inc:0,incOne:0,daily:0,free:0,monthly:0,oneoff:0,bills:[],ones:[]};
   for(const o of ops){const t=parseD(o.date),v=opEUR(o);
-    if(t>=hs&&t<mon){if(o.type==="income"&&!o.oneoff)hInc+=v;else if(opKind(o)==="monthly")hBills+=v}
+    if(t>=hs&&t<mon){if(o.type==="income"&&!o.oneoff)hInc+=v}
     else if(t>=mon&&t<end){
       if(o.type==="income"){if(o.oneoff)cur.incOne+=v;else cur.inc+=v;continue}
       const k=opKind(o);cur[k]+=v;
       const nm=o.comment||(o.tagIds||[]).map(x=>(D.tags[x]||{}).name).filter(Boolean)[0]||(category(o.categoryId)||{}).name||"";
       if(k==="monthly"&&nm&&!cur.bills.includes(nm))cur.bills.push(nm);if(k==="oneoff"&&nm&&!cur.ones.includes(nm))cur.ones.push(nm)}}
-  const avgInc=weeks?hInc/weeks:cur.inc,billShare=weeks?hBills/weeks:cur.monthly;
+  const avgInc=weeks?hInc/weeks:cur.inc,billShare=weeks?monthlyBills(hs,mon).total*12/52:cur.monthly;
   const arrived=cur.inc>=avgInc*.5&&cur.inc>0,expInc=arrived?cur.inc:avgInc;
   const K=kNow(),need=K.m?K.m.budgets[UI.budget].KAI.need:0;
   const life=expInc-need-billShare,spent=cur.daily+cur.free;

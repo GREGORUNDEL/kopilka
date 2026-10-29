@@ -120,6 +120,28 @@ def kind(d, o):
         return "daily"
     return "free"
 
+def py_bills(d, start, end):
+    """Ежемесячные счета: серия = тег с пометкой «monthly», иначе категория + комментарий;
+    серия стоит средний платёж в месяц; серия без платежа за последние 45 дней окна — закончилась."""
+    tags = d.get("tags") or {}
+    series = {}
+    for o in ops_of(d):
+        if o["type"] != "expense" or kind(d, o) != "monthly" or (d["accounts"].get(o["accountId"]) or {}).get("exclude"):
+            continue
+        day = dt.date.fromisoformat(o["date"])
+        if not (start <= day < end):
+            continue
+        key = next((("t", tags[t]["name"]) for t in o.get("tagIds") or [] if (tags.get(t) or {}).get("fixed") == "monthly"),
+                   ("c", o.get("categoryId") or "_", o.get("comment") or ""))
+        s = series.setdefault(key, {"amounts": [], "last": day, "cat": o.get("categoryId") or "_"})
+        s["amounts"].append(op_eur(d, o)); s["last"] = max(s["last"], day)
+    by = {}
+    for s in series.values():
+        if s["last"] < end - 45 * DAY:
+            continue
+        by[s["cat"]] = by.get(s["cat"], 0) + sum(s["amounts"]) / len(s["amounts"])
+    return sum(by.values()), by
+
 def py_budget(d, today):
     mon = monday(today)
     ops = [o for o in ops_of(d) if o["type"] in ("income", "expense") and not (d["accounts"].get(o["accountId"]) or {}).get("exclude")]
@@ -129,22 +151,20 @@ def py_budget(d, today):
     hs = monday(first) + (7 * DAY if first != monday(first) else dt.timedelta(0))  # первая неполная неделя не в счёт
     hs = max(hs, mon - 13 * 7 * DAY)
     weeks = max(0, (mon - hs).days // 7)
-    h_inc = h_bills = 0.0
+    h_inc = 0.0
     cur = {"inc": 0.0, "incOne": 0.0, "daily": 0.0, "free": 0.0, "monthly": 0.0, "oneoff": 0.0}
     for o in ops:
         day, v = dt.date.fromisoformat(o["date"]), op_eur(d, o)
         if hs <= day < mon:
             if o["type"] == "income" and not o.get("oneoff"):
                 h_inc += v
-            elif o["type"] == "expense" and kind(d, o) == "monthly":
-                h_bills += v
         elif mon <= day < mon + 7 * DAY:
             if o["type"] == "income":
                 cur["incOne" if o.get("oneoff") else "inc"] += v
             else:
                 cur[kind(d, o)] += v
     avg = h_inc / weeks if weeks else cur["inc"]
-    bills = h_bills / weeks if weeks else cur["monthly"]
+    bills = py_bills(d, hs, mon)[0] * 12 / 52 if weeks else cur["monthly"]
     arrived = cur["inc"] > 0 and cur["inc"] >= avg * 0.5
     return {"weeks": weeks, "avgInc": avg, "billShare": bills, "arrived": arrived,
             "expInc": cur["inc"] if arrived else avg, "cur": cur}
@@ -214,12 +234,17 @@ def py_avg(d, today):
         k = kind(d, o)
         if k == "oneoff":
             one += v
-        elif k in ("daily", "monthly"):
+        elif k == "daily":
             c = o.get("categoryId") or "_"
             by[c] = by.get(c, 0) + v
+        elif k == "monthly":
+            pass  # счета считаются сериями, ниже
         else:
             other += v
     rows = {k: v / days for k, v in by.items()}
+    for c, m in py_bills(d, start, end)[1].items():
+        rows[c] = rows.get(c, 0) + m / 30.4375
+    rows = {k: v for k, v in rows.items() if v > 0}
     mand = sum(rows.values())
     return {"rows": rows, "mand": mand, "other": other / days, "total": mand + other / days, "one": one / days,
             "allReg": mand + other / days, "inc": inc / days, "days": days}
@@ -398,7 +423,8 @@ def fixture():
         "2026-10-12": dict(inc=632, exp=220, saved=412, oneoff=140, income=12, balance=1756),
         "2026-10-19": dict(inc=0, exp=40, saved=-40, oneoff=0, income=0, balance=1716),
     }
-    budget = dict(weeks=1, avgInc=620, billShare=30, arrived=False, expInc=620,
+    # NS 30 € — одна серия ежемесячного счёта: 30 € в месяц = 30·12/52 в неделю
+    budget = dict(weeks=1, avgInc=620, billShare=30 * 12 / 52, arrived=False, expInc=620,
                   cur=dict(inc=0, incOne=0, daily=20, free=20, monthly=0, oneoff=0))
     return data, expect, budget
 
@@ -424,7 +450,7 @@ def main():
             R.eq(f"[ответ] бюджет {k}", app["budget"][k], budget[k])
         for k, v in budget["cur"].items():
             R.eq(f"[ответ] бюджет, текущая неделя {k}", app["budget"]["cur"][k], v)
-        R.eq("[ответ] осталось на неделю", app["budget"]["left"], 620 - app["budget"]["need"] - 30 - 40)
+        R.eq("[ответ] осталось на неделю", app["budget"]["left"], 620 - app["budget"]["need"] - 30 * 12 / 52 - 40)
     compare(R, data, app, today)
     if a.kop:
         compare_kop(R, data, app, a.kop)
