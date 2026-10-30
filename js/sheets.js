@@ -43,8 +43,12 @@ function tagUsage(catId,type){const cnt={};if(!catId)return cnt;const cut=iso(to
   for(const o of opsList()){if(o.type!==type||o.categoryId!==catId)continue;for(const t of o.tagIds||[])cnt[t]=(cnt[t]||0)+(o.date>=cut?3:1)}return cnt}
 function openOp(id,preset){
   const ex=id?D.ops[id]:null;
+  // income goes to ING by default (salary), expenses to the default account
+  const incomeAcc=()=>{const s=settings().incomeAccount;if(s&&account(s)&&!account(s).deleted)return s;const a=accounts().find(a=>a.id==="ing"||/^ing$/i.test(a.name));return a&&a.id};
+  const expenseAcc=()=>settings().defaultAccount&&account(settings().defaultAccount)&&!account(settings().defaultAccount).deleted?settings().defaultAccount:(accounts()[0]||{}).id;
   const st={type:ex?ex.type:(preset&&preset.type)||(UI.tab==="overview"?UI.ov.type:"expense"),expr:ex?String(ex.amount).replace(".",","):"",accountId:ex?ex.accountId:(settings().defaultAccount&&account(settings().defaultAccount)&&!account(settings().defaultAccount).deleted?settings().defaultAccount:(accounts()[0]||{}).id),
-    categoryId:ex?ex.categoryId:null,date:ex?ex.date:todayIso(),tagIds:new Set(ex?ex.tagIds||[]:[]),comment:ex?ex.comment||"":"",oneoff:ex?!!ex.oneoff:false,oneoffTouched:!!ex,showAll:false,kb:!ex,addingTag:false,delArmed:false};
+    categoryId:ex?ex.categoryId:null,date:ex?ex.date:todayIso(),tagIds:new Set(ex?ex.tagIds||[]:[]),comment:ex?ex.comment||"":"",oneoff:ex?!!ex.oneoff:false,oneoffTouched:!!ex,showAll:false,kb:!ex,addingTag:false,delArmed:false,accTouched:false};
+  if(!ex&&st.type==="income")st.accountId=incomeAcc()||st.accountId;
   if(ex&&ex.type==="correction"){return openCorrection(ex)}
   const sh=openSheet({title:"",tall:true,keypad:true,right:{label:"Сохранить",fn:save}});
   const setTitle=()=>sh.setTitle(`<div class="seg" style="max-width:220px;margin:0 auto"><button data-t="expense" aria-pressed="${st.type==="expense"}">Расход</button><button data-t="income" aria-pressed="${st.type==="income"}">Доход</button></div>`);
@@ -53,7 +57,8 @@ function openOp(id,preset){
   function amountHtml(){const v=evalExpr(st.expr);const cur=accCur(st.accountId);const hasOp=/[+\-−]/.test(st.expr.replace(/^-/,""));
     return `<div class="expr num">${hasOp?esc(st.expr.replace(/\./g,","))+" =":"&nbsp;"}</div><div class="val num ${st.expr?"":"ph"}">${st.expr?(isFinite(v)?nf2v.format(v):esc(st.expr)):"0"}<span class="cur">${esc(cur)}</span></div>`}
   function draw(){
-    setTitle();sh.el.querySelectorAll(".sheet-head [data-t]").forEach(b=>b.onclick=()=>{if(st.type!==b.dataset.t){st.type=b.dataset.t;st.categoryId=null;if(!st.oneoffTouched)st.oneoff=false;draw()}});
+    setTitle();sh.el.querySelectorAll(".sheet-head [data-t]").forEach(b=>b.onclick=()=>{if(st.type!==b.dataset.t){st.type=b.dataset.t;st.categoryId=null;if(!st.oneoffTouched)st.oneoff=false;
+      if(!ex&&!st.accTouched)st.accountId=(st.type==="income"?incomeAcc():expenseAcc())||st.accountId;draw()}});
     const cats=categories(st.type);const use=catUsage(st.type);const sorted=cats.slice().sort((a,b)=>(use[b.id]||0)-(use[a.id]||0)||byOrder(a,b));
     let shown=st.showAll?sorted:sorted.slice(0,7);if(st.categoryId&&!shown.find(c=>c.id===st.categoryId)){const c=category(st.categoryId);if(c)shown=[c,...shown.slice(0,6)]}
     const t0=todayMs();const dq=[[iso(t0),"сегодня"],[iso(t0-DAY),"вчера"],[iso(t0-2*DAY),"позавчера"]];const custom=!dq.find(x=>x[0]===st.date);
@@ -75,7 +80,7 @@ function openOp(id,preset){
     // bindings
     const B=sh.body;
     B.querySelector('[data-x="amount"]').onclick=()=>{st.kb=true;document.activeElement&&document.activeElement.blur();drawPad();B.querySelector(".amount-box").classList.add("focus")};
-    B.querySelectorAll("[data-acc]").forEach(b=>b.onclick=()=>{st.accountId=b.dataset.acc;draw()});
+    B.querySelectorAll("[data-acc]").forEach(b=>b.onclick=()=>{st.accountId=b.dataset.acc;st.accTouched=true;draw()});
     B.querySelectorAll("[data-cat]").forEach(b=>b.onclick=()=>{st.categoryId=b.dataset.cat;st._needCat=false;const c=category(st.categoryId);if(!st.oneoffTouched&&c)st.oneoff=!!c.oneoff;draw()});
     const ac=B.querySelector('[data-x="allcats"]');if(ac)ac.onclick=()=>{st.showAll=!st.showAll;draw()};
     const nc=B.querySelector('[data-x="newcat"]');if(nc)nc.onclick=()=>openCategory(null,st.type,c=>{st.categoryId=c.id;draw()});

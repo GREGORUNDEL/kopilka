@@ -246,6 +246,20 @@ function monthlyBills(start,end){
   for(const s of Object.values(S)){if(s.last<end-Math.max(BILL_ACTIVE_DAYS,s.days*1.5)*DAY)continue;const m=s.sum/s.n*MONTH_DAYS/s.days;total+=m;byCat[s.cat]=(byCat[s.cat]||0)+m}
   return{total,byCat};
 }
+/* The averaging window shared by «В среднем», the plan and the weekly budget: whole finished weeks, from the first
+   full week of records (or settings.avgFrom, e.g. the move to Japan), at most the last 26 weeks. */
+function avgWindow(){
+  const today=todayMs(),exp=opsList().filter(o=>o.type==="expense"&&!(account(o.accountId)||{}).exclude);
+  if(!exp.length)return null;
+  const first=parseD(exp.reduce((m,o)=>o.date<m?o.date:m,"9999"));let start=mondayOf(first);if(first>start)start+=7*DAY;
+  const from=settings().avgFrom;if(from){let f=mondayOf(parseD(from));if(f<parseD(from))f+=7*DAY;start=Math.max(start,f)}
+  const end=mondayOf(today),cap=end-26*7*DAY,capped=start<cap;if(capped)start=cap;
+  const days=Math.round((end-start)/DAY);return days<7?null:{start,end,days,capped};
+}
+/* Weekly budget: how much you can still spend this week = what you USUALLY spend in a week on food & everyday
+   mandatory things («daily») and on everything else («free»), minus what you've spent on them this week.
+   It does not grow when a big pay comes in. Monthly bills and one-offs are outside it. As a reference the card also
+   shows what the KAI plan would allow (income − norm − average share of the bills). */
 function weekBudget(){
   const today=todayMs(),mon=mondayOf(today),end=mon+7*DAY;
   const ops=opsList().filter(o=>(o.type==="income"||o.type==="expense")&&!(account(o.accountId)||{}).exclude);
@@ -263,6 +277,11 @@ function weekBudget(){
   const avgInc=weeks?hInc/weeks:cur.inc,billShare=weeks?monthlyBills(hs,mon).total*12/52:cur.monthly;
   const arrived=cur.inc>=avgInc*.5&&cur.inc>0,expInc=arrived?cur.inc:avgInc;
   const K=kNow(),need=K.m?K.m.budgets[UI.budget].KAI.need:0;
-  const life=expInc-need-billShare,spent=cur.daily+cur.free;
-  return{mon,end,daysLeft:Math.max(1,Math.round((end-today)/DAY)),weeks,avgInc,billShare,arrived,expInc,need,life,spent,left:life-spent,cur,K};
+  const planLife=expInc-need-billShare,spent=cur.daily+cur.free;
+  const W=avgWindow();let uDaily=0,uFree=0;
+  if(W){for(const o of ops){if(o.type!=="expense")continue;const t=parseD(o.date);if(t<W.start||t>=W.end)continue;const k=opKind(o);
+      if(k==="daily")uDaily+=opEUR(o);else if(k==="free")uFree+=opEUR(o)}
+    uDaily=uDaily/W.days*7;uFree=uFree/W.days*7}
+  const budget=W?uDaily+uFree:Math.max(0,planLife);
+  return{mon,end,daysLeft:Math.max(1,Math.round((end-today)/DAY)),weeks,avgInc,billShare,arrived,expInc,need,planLife,usual:!!W,uDaily,uFree,budget,life:budget,spent,left:budget-spent,cur,K};
 }

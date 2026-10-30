@@ -93,15 +93,10 @@ const eyeBtn=()=>`<button class="icon-btn" data-act="hidebal" aria-label="${UI.h
    marked «обязательная» (food, rent, NS, subscriptions, laundry…; see opKind) — per category, then everything else
    regular as one «Остальное» line, one-offs apart. Averages are over finished weeks only (salary and rent arrive in
    lumps, a half week skews them), at most the last 26, from settings.avgFrom if set (e.g. the move to Japan). */
-const AVG_SCALES=[["day","День",1],["week","Неделя",7],["month","Месяц",30.4375],["year","Год",365.25]],AVG_WINDOW=26*7;
+const AVG_SCALES=[["day","День",1],["week","Неделя",7],["month","Месяц",30.4375],["year","Год",365.25]];
 const isMandatory=o=>{const k=opKind(o);return k==="daily"||k==="monthly"};
 function avgData(){
-  const today=todayMs(),exp=opsList().filter(o=>o.type==="expense"&&!(account(o.accountId)||{}).exclude);
-  if(!exp.length)return null;
-  const first=parseD(exp.reduce((m,o)=>o.date<m?o.date:m,"9999"));let start=mondayOf(first);if(first>start)start+=7*DAY;
-  const from=settings().avgFrom;if(from){let f=mondayOf(parseD(from));if(f<parseD(from))f+=7*DAY;start=Math.max(start,f)}
-  const end=mondayOf(today),cap=end-AVG_WINDOW*DAY,capped=start<cap;if(capped)start=cap;
-  const days=Math.round((end-start)/DAY);if(days<7)return null;
+  const W=avgWindow();if(!W)return null;const{start,end,days,capped}=W;
   const by={},tagsBy={},otherBy={};let one=0,other=0,inc=0;
   for(const o of opsList()){const t=parseD(o.date);if(t<start||t>=end||(account(o.accountId)||{}).exclude)continue;const v=opEUR(o);
     if(o.type==="income"){if(!o.oneoff)inc+=v;continue}
@@ -155,21 +150,24 @@ function goalLine(){
 }
 function budgetCard(){
   const B=weekBudget();if(!B)return"";const c=B.cur,neg=B.left<0;
-  const lifeW=Math.max(B.life,B.spent,1),dW=Math.max(0,c.daily)/lifeW*100,fW=Math.max(0,c.free)/lifeW*100;
+  const lifeW=Math.max(B.budget,B.spent,1),dW=Math.max(0,c.daily)/lifeW*100,fW=Math.max(0,c.free)/lifeW*100;
   const head=B.daysLeft===1?"последний день недели":"ещё "+B.daysLeft+" "+(B.daysLeft<5?"дня":"дней");
   const row=(k,v,cls,small)=>`<div class="r"><span class="k">${k}${small?`<small>${small}</small>`:""}</span><span class="v num ${cls||""}">${v}</span></div>`;
   const open=!!UI.budgetOpen;
   let h=`<section class="card budget ${open?"open":""}"><button class="b-head" data-act="budgettoggle" aria-expanded="${open}">
     <span class="b-main"><span class="b-big num ${neg?"neg-t":""}"><span data-roll="left" data-v="${Math.abs(B.left).toFixed(2)}" data-fmt="eur">${eur(Math.abs(B.left))}</span> €</span><span class="b-cap">${neg?"перерасход недели":"можно потратить"}<br>${head}${!neg&&B.daysLeft>1?` · ≈ ${eur(B.left/B.daysLeft)} €/день`:""}</span></span>
     <span class="b-chev">${svgI("chevD")}</span></button>
-    <div class="b-bar" role="img" aria-label="Потрачено ${eur(B.spent)} из ${eur(B.life)} €"><i class="d" data-bar="bd" style="width:${dW.toFixed(1)}%"></i><i class="f" data-bar="bf" style="width:${fW.toFixed(1)}%"></i></div>
+    <div class="b-bar" role="img" aria-label="Потрачено ${eur(B.spent)} из ${eur(B.budget)} €"><i class="d" data-bar="bd" style="width:${dW.toFixed(1)}%"></i><i class="f" data-bar="bf" style="width:${fW.toFixed(1)}%"></i></div>
     <div class="b-more" ${open?"":"hidden"}><div class="rows">`;
-  h+=row(B.arrived?"Доход за неделю":"Доход, ожидается",(B.arrived?"+":"≈ +")+eur(B.expInc),"pos-t",B.arrived?"":`зарплаты ещё нет · обычно ${eur(B.avgInc)} €`);
-  if(B.need)h+=row("Отложить по норме KAI","−"+eur(B.need));
-  h+=row("Счета месяца, в среднем","−"+eur(B.billShare),"",c.monthly>0?`на этой неделе оплачено ${eur(c.monthly)} €`+(c.bills.length?`: ${esc(c.bills.slice(0,3).join(", "))}`:""):"аренда, NS, подписки");
-  h+=row("<b>На жизнь</b>",eur(B.life)+" €");
+  if(B.usual){
+    h+=row("Еда и обязательное, обычно",eur(B.uDaily)+" €","","в среднем за неделю");
+    h+=row("Остальное, обычно",eur(B.uFree)+" €","","без счетов месяца и разовых");
+    h+=row("<b>Бюджет недели</b>",eur(B.budget)+" €");
+  }else h+=row("<b>Бюджет недели</b>",eur(B.budget)+" €","","пока мало истории — по плану KAI");
   h+=row(`<i class="dot d"></i>Еда и обязательное`,"−"+eur(c.daily));
   h+=row(`<i class="dot f"></i>Остальное`,"−"+eur(c.free));
+  if(B.usual){const tight=B.planLife<B.budget;
+    h+=row("План KAI позволяет",eur(B.planLife)+" €",tight?"neg-t":"pos-t",`доход ${B.arrived?"":"≈ "}${eur(B.expInc)} − норма ${eur(B.need)} − счета ${eur(B.billShare)}`+(tight?" · меньше обычных трат":""))}
   h+=`</div>`;
   const savedNow=c.inc+c.incOne-c.daily-c.free-c.monthly-c.oneoff;
   h+=`<button class="b-foot" data-act="tab" data-v="kopilka"><span>Отложено за неделю <b class="num ${savedNow>=0?"":"neg-t"}">${signed(savedNow)} €</b>${c.oneoff>0?`<small>с учётом разовых −${eur(c.oneoff)} €${c.ones.length?": "+esc(c.ones.slice(0,2).join(", ")):""}</small>`:""}</span>${svgI("chevR")}</button></div>`;

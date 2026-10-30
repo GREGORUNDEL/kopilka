@@ -145,6 +145,19 @@ def py_bills(d, start, end):
         by[s["cat"]] = by.get(s["cat"], 0) + sum(s["amounts"]) / len(s["amounts"]) * 30.4375 / s["days"]
     return sum(by.values()), by
 
+def py_window(d, today):
+    exp = [o for o in ops_of(d) if o["type"] == "expense" and not (d["accounts"].get(o["accountId"]) or {}).get("exclude")]
+    if not exp:
+        return None
+    first = dt.date.fromisoformat(min(o["date"] for o in exp))
+    start = monday(first) + (7 * DAY if first != monday(first) else dt.timedelta(0))
+    frm = (d.get("settings") or {}).get("avgFrom")
+    if frm:
+        f = dt.date.fromisoformat(frm); start = max(start, monday(f) + (7 * DAY if f != monday(f) else dt.timedelta(0)))
+    end = monday(today); start = max(start, end - 26 * 7 * DAY)
+    days = (end - start).days
+    return (start, end, days) if days >= 7 else None
+
 def py_budget(d, today):
     mon = monday(today)
     ops = [o for o in ops_of(d) if o["type"] in ("income", "expense") and not (d["accounts"].get(o["accountId"]) or {}).get("exclude")]
@@ -169,7 +182,20 @@ def py_budget(d, today):
     avg = h_inc / weeks if weeks else cur["inc"]
     bills = py_bills(d, hs, mon)[0] * 12 / 52 if weeks else cur["monthly"]
     arrived = cur["inc"] > 0 and cur["inc"] >= avg * 0.5
-    return {"weeks": weeks, "avgInc": avg, "billShare": bills, "arrived": arrived,
+    # обычные траты в неделю: «ежедневные обязательные» и «остальное» за то же окно, что и средние
+    ud = uf = 0.0
+    w = py_window(d, today)
+    if w:
+        s0, e0, days = w
+        for o in ops:
+            day = dt.date.fromisoformat(o["date"])
+            if o["type"] == "expense" and s0 <= day < e0:
+                k = kind(d, o)
+                ud += op_eur(d, o) if k == "daily" else 0
+                uf += op_eur(d, o) if k == "free" else 0
+        ud, uf = ud / days * 7, uf / days * 7
+    return {"usual": bool(w), "uDaily": ud, "uFree": uf, "budget": ud + uf,
+            "weeks": weeks, "avgInc": avg, "billShare": bills, "arrived": arrived,
             "expInc": cur["inc"] if arrived else avg, "cur": cur}
 
 # Копилка: цели, темп, норма, прогноз — по законченным неделям (см. kMetrics в js/core.js)
@@ -285,7 +311,7 @@ def run_app(data, now=None):
               ["mine","comfort"].flatMap(b=>["SNG","KAI"].map(s=>[b+"."+s,m.budgets[b][s]])))};
             const avg=A&&{rows:Object.fromEntries(A.rows.map(r=>[r.id,r.d])),mand:A.mand,other:A.other,total:A.total,one:A.one,allReg:A.allReg,inc:A.inc,days:A.days};
             return {plan,avg,weeks:K.kopWeeks().filter(w=>w.computed),acc,total:K.totalEUR(null),
-              budget:B&&{weeks:B.weeks,avgInc:B.avgInc,billShare:B.billShare,arrived:B.arrived,expInc:B.expInc,need:B.need,
+              budget:B&&{usual:B.usual,uDaily:B.uDaily,uFree:B.uFree,budget:B.budget,planLife:B.planLife,weeks:B.weeks,avgInc:B.avgInc,billShare:B.billShare,arrived:B.arrived,expInc:B.expInc,need:B.need,
                 life:B.life,spent:B.spent,left:B.left,daysLeft:B.daysLeft,cur:B.cur}}}""")
         for tab in ("ops", "kopilka", "accounts", "overview"):  # каждый экран открывается без ошибок
             pg.click(f"[data-act=tab][data-v={tab}]")
@@ -325,13 +351,15 @@ def compare(R, data, app, today):
     if (pb is None) != (ab is None):
         R.fail(f"бюджет недели: приложение {ab!r}, пересчёт {pb!r}")
     elif pb:
-        for k in ("weeks", "avgInc", "billShare", "arrived", "expInc"):
+        for k in ("weeks", "avgInc", "billShare", "arrived", "expInc", "usual", "uDaily", "uFree"):
             R.eq(f"бюджет {k}", ab[k], pb[k])
+        if pb["usual"]:
+            R.eq("бюджет недели = обычные еда + остальное", ab["budget"], pb["budget"])
         for k, v in pb["cur"].items():
             R.eq(f"бюджет, текущая неделя {k}", ab["cur"][k], v)
-        R.eq("бюджет: на жизнь = доход − норма − счета", ab["life"], ab["expInc"] - ab["need"] - ab["billShare"])
+        R.eq("план KAI позволяет = доход − норма − счета", ab["planLife"], ab["expInc"] - ab["need"] - ab["billShare"])
         R.eq("бюджет: потрачено = еда + остальное", ab["spent"], ab["cur"]["daily"] + ab["cur"]["free"])
-        R.eq("бюджет: осталось = на жизнь − потрачено", ab["left"], ab["life"] - ab["spent"])
+        R.eq("бюджет: осталось = бюджет недели − потрачено", ab["left"], ab["budget"] - ab["spent"])
         if not 1 <= ab["daysLeft"] <= 7:
             R.fail(f"бюджет: дней до конца недели {ab['daysLeft']}")
         pp = py_plan(data, today)
@@ -453,7 +481,9 @@ def main():
             R.eq(f"[ответ] бюджет {k}", app["budget"][k], budget[k])
         for k, v in budget["cur"].items():
             R.eq(f"[ответ] бюджет, текущая неделя {k}", app["budget"]["cur"][k], v)
-        R.eq("[ответ] осталось на неделю", app["budget"]["left"], 620 - app["budget"]["need"] - 30 * 12 / 52 - 40)
+        # обычная неделя 12.10: еда 50 €, остальное 0 (NS — счёт, путешествие — разовое) → бюджет 50, потрачено 40
+        R.eq("[ответ] бюджет недели", app["budget"]["budget"], 50)
+        R.eq("[ответ] осталось на неделю", app["budget"]["left"], 10)
     compare(R, data, app, today)
     if a.kop:
         compare_kop(R, data, app, a.kop)
